@@ -1,0 +1,5 @@
+foo (a: INTEGER, b: INTEGER)
+    require
+        some: a > b
+    ensure
+        thing: 2*a > b + 1
