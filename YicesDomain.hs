@@ -93,6 +93,7 @@ data YicesType = BasicType Type
 
 typeY (BasicType t) = basicTypeY t
 typeY (FuncType ts r) = list $ symbol "->" : map typeY (ts ++ [r])
+typeY (Scalar ss) = list $ symbol "scalar" : map symbol ss
 
 indexType = BasicType IntType
 
@@ -120,11 +121,26 @@ procConvY proc@(Procedure {prcdName = name, prcdReq = req, prcdEns = ens}) =
 
 procConv = defineY . procConvY
 
+maxObjs = 10
+idxRefObj name i = name ++ "_obj" ++ show i
+
+structConvY (StructType name _) = DefineType refName (Scalar objs)
+    where refName = name ++ "_ref"
+          objs = map (idxRefObj name) [1 .. maxObjs]
+
+defineTypeY (DefineType name t) = 
+    list $ [symbol "define-type", symbol name, typeY t]
+                                  
+
+procStructs = defineTypeY . structConvY
+
+procDom :: Domain -> [L.Lisp]
+procDom (Domain procs types) = map procConv procs ++ map procStructs types
+
 -- read and convert the test-domain to yices format
 testCase = do
   str <- B.readFile "test.dmn"
-  let domsE = parseDomain str
-  case domsE of
-    Right doms -> -- print doms >> 
-                  mapM_ (putStrLn . show . procConv) (domProcs doms)
+  let domE = parseDomain str
+  case domE of
+    Right dom -> mapM_ (putStrLn . show) (procDom dom)
     Left e -> print e
