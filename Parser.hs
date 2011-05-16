@@ -16,7 +16,7 @@ import ParserPosition
 import ParserBasic
 import Types
 
-data StructType = StructType String [Decl]
+data StructType = StructType String [Decl] deriving Show
 
 data BinOp = Add
            | Sub
@@ -46,7 +46,7 @@ data Expr =
     Call String [Expr]
   | BinOpExpr BinOp Expr Expr
   | UnOpExpr UnOp Expr
-  | Attached String Expr String
+  | Access Expr String
   | Var String
   | ResultVar
   | Cast Type Expr
@@ -62,7 +62,9 @@ instance Show Expr where
         = s ++ "(" ++ intercalate "," (map show args) ++ ")"
     show (BinOpExpr op e1 e2) 
         = "(" ++ show e1 ++ " " ++ show op ++ " " ++ show e2 ++ ")"
-    show (UnOpExpr op e) = error "no unops shown!"
+    show (UnOpExpr op e) = show op ++ " " ++ show e
+    show (Access e f) = show e ++ "." ++ f
+    show (Var s) = s
     show ResultVar  = "Result"
     show (Cast t e)    = "{" ++ show t ++ "}" ++ show e
     show (LitString s) = "\"" ++ s ++ "\""
@@ -71,6 +73,8 @@ instance Show Expr where
     show (LitBool b) = show b
     show (LitDouble d) = show d
     show LitVoid = "Void"
+
+
 
 struct :: Parser StructType
 struct = reserved "type" *> 
@@ -103,9 +107,13 @@ table =
      ,binary "or"  (BinOpExpr Or)   AssocLeft
      ,binary "implies"  (BinOpExpr Implies)   AssocLeft
      ]
-    ,[otherOperator]
+--    ,[otherOperator]
+--    ,[accessP]
     ,[prefix "old" (UnOpExpr Old)]
     ]
+
+accessP :: Stream s m Char => Operator s u m Expr
+accessP = Postfix $ flip Access <$> (identifier <* dot)
 
 symbols = "*/-+\\|="
 
@@ -139,69 +147,41 @@ binary name fun =
       reservedOp name
       return fun
 
-factor = try lookupP <|> factor'
+factor = try lookupP <|> try access <|> factor'
 
 factor' :: Parser Expr
 factor' = 
-      try doubleLit
-  <|> intLit
+      intLit
   <|> boolLit
-  <|> stringLit
-  <|> charLit
-  <|> attached
-  <|> call
-  <|> var
   <|> void
+  <|> try call
+  <|> resultVar
+  <|> var
   <|> parens expr
 
-escChar, singQuote :: Parser String
-escChar = string "%"
-singQuote = string "\'"
-
-charLit :: Parser Expr
-charLit = do
-  singQuote
-  optional escChar
-  c <- anyChar
-  singQuote
-  return (LitChar c)
+access = go =<< (accs =<< factor')
+  where 
+    accs e = Access e <$> (dot *> identifier)
+    go e = try (go =<< accs e) <|> pure e
 
 stringLit :: Parser Expr
 stringLit = LitString `fmap` anyString
-
-attached :: Parser Expr
-attached = do
-  reserved "attached"
-  cname <- braces identifier
-  trg <- expr
-  reserved "as"
-  newName <- identifier
-  return $ Attached cname trg newName
 
 void :: Parser Expr
 void = reserved "Void" >> return LitVoid
 
 lookupP :: Parser Expr
-lookupP = do
-  t <- factor'
-  a <- squares expr
-  return (BinOpExpr (SymbolOp "[]") t a)
+lookupP = BinOpExpr (SymbolOp "[]") <$> factor' <*> squares expr
 
 argsP = parens (expr `sepBy` comma)
 
-normalVar = do
-  i <- identifier
-  notFollowedBy argsP
-  return (Var i)
-
-var :: Parser Expr
-var = resultVar <|> normalVar
+var = Var <$> identifier
 
 call :: Parser Expr
-call = try $ Call <$> identifier <*> argsP
+call = Call <$> identifier <*> argsP
 
 resultVar :: Parser Expr
-resultVar = reserved "Result" >> return ResultVar
+resultVar = reserved "Result" *> pure ResultVar
 
 intLit :: Parser Expr
 intLit = fmap (LitInt . fromIntegral) integer
@@ -226,7 +206,6 @@ data Procedure exp =
     Procedure
     { 
       prcdName   :: String,
-      -- prcdAlias  :: Maybe String,
       prcdArgs   :: [Decl],
       prcdResult :: Type,
       prcdReq    :: [Clause exp],
@@ -261,7 +240,7 @@ data Decl = Decl
     }
 
 instance Show Decl where
-    show (Decl name typ) = name ++ ":" ++ show typ
+    show (Decl name typ) = name ++ ": " ++ show typ
 
 insertDecl :: Decl -> Map String Type -> Map String Type
 insertDecl (Decl s t) = Map.insert s t
@@ -291,10 +270,23 @@ argumentList :: Parser [Decl]
 argumentList = parens (decl `sepBy` comma)
 
 -- Domain description
+ 
+data Domain = 
+  Domain  
+  {
+    domProcs :: [Procedure Expr],
+    domStructs :: [StructType]
+  } deriving Show
 
-type Domain = [Procedure Expr]
+emptyDomain = Domain [] []
+addStruct (Domain procs structs) s = Domain procs (s:structs)
+addProc (Domain procs structs) p = Domain (p:procs) structs
 
-domain = many procedureP
+domain = foldl (\d -> either (addStruct d) (addProc d)) emptyDomain <$> eithers
+  where 
+    strct = Left <$> struct
+    prcs = Right <$> procedureP 
+    eithers = many (strct <|> prcs)
 
 parseExpr = parse expr ""
 parseDomain = parse domain ""

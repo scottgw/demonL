@@ -23,11 +23,10 @@ lexeme =
            P.reservedNames = 
                concat [["True","False"]
                       ,["Void"]
-                      ,["alias"]
+                      ,["type"]
                       ,["attached","as"]
                       ,["create"]
                       ,["Result", "Current"]
-                      ,["like", "detachable"]
                       ,["ensure","require","invariant"]
                       ,["INTEGER","REAL","BOOLEAN"]
                       ],
@@ -53,6 +52,9 @@ colon = reservedOp ":"
 
 comma :: Stream s m Char => ParsecT s u m String
 comma = P.comma lexeme
+
+dot :: Stream s m Char => ParsecT s u m String
+dot = P.dot lexeme
 
 semicolon :: Parser ()
 semicolon = reservedOp ";"

@@ -1,5 +1,7 @@
+type stock { shares: INTEGER }
+
 foo (a: INTEGER, b: INTEGER)
     require
-        some: a > b
+        some: a > b.bar.baz.biz.sqa
     ensure
         thing: 2*a > b + 1

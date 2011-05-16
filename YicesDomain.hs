@@ -33,6 +33,7 @@ exprY :: Expr -> L.Lisp
 exprY (Call name args) = list (symbol name : map exprY args)
 exprY (Var v) = symbol v
 exprY (BinOpExpr bop e1 e2) = exprY (Call (binLisp bop) [e1, e2])
+exprY (Access e f) = exprY (Call f [e])
 exprY (LitInt i) = symbol (show i)
 exprY (LitBool True) = symbol "true"
 exprY (LitBool False) = symbol "false"
@@ -68,6 +69,7 @@ clauseY  = exprY . clauseExpr
 clausesY = map clauseY
 
 
+
 data Define = 
   Define 
   {
@@ -83,9 +85,11 @@ actionExpr (Procedure {prcdArgs = args, prcdReq = req, prcdEns = ens}) =
     ands  = andY $ pres ++ posts
   in lambdaY args ands
    
-  
+data DefineType = DefineType String YicesType
+     
 data YicesType = BasicType Type
                | FuncType [YicesType] YicesType
+               | Scalar [String]
 
 typeY (BasicType t) = basicTypeY t
 typeY (FuncType ts r) = list $ symbol "->" : map typeY (ts ++ [r])
@@ -97,24 +101,30 @@ actionType = FuncType [indexType] (BasicType BoolType)
 procYicesType :: Procedure Expr -> YicesType
 procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
   let ytypes = map (BasicType . declType) args
-  in  case resultType of
-    NoType -> FuncType ytypes actionType
-    _ -> error "only works on proper procedures, without a result"
+  in  
+   case resultType of
+     NoType -> FuncType ytypes actionType
+     _ -> error "only works on proper procedures, without a result"
 
 defineY (Define {defName = name, defType = typ, defExpr = exprM}) = 
   let noExpr = [symbol "define", symbol name, symbol "::", typeY typ]
   in  list $ noExpr ++ maybe [] (:[]) exprM
 
-procConv :: Procedure Expr -> L.Lisp
-procConv proc@(Procedure {prcdName = name, prcdReq = req, prcdEns = ens}) = 
+procConvY :: Procedure Expr -> Define
+procConvY proc@(Procedure {prcdName = name, prcdReq = req, prcdEns = ens}) = 
   let
     pres  = clausesY req
     posts = clausesY ens
     ands  = andY $ pres ++ posts
-  in defineY $ Define name (procYicesType proc) (Just $ actionExpr proc)
+  in Define name (procYicesType proc) (Just $ actionExpr proc)
+
+procConv = defineY . procConvY
 
 -- read and convert the test-domain to yices format
 testCase = do
   str <- B.readFile "test.dmn"
-  let Right doms = parseDomain str
-  mapM_ (putStrLn . show . procConv) doms
+  let domsE = parseDomain str
+  case domsE of
+    Right doms -> -- print doms >> 
+                  mapM_ (putStrLn . show . procConv) (domProcs doms)
+    Left e -> print e
