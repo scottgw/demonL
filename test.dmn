@@ -1,4 +1,4 @@
-type stock { shares: INTEGER }
+type stock { shares: INTEGER open: BOOLEAN }
 
 foo (a: INTEGER, b: INTEGER)
     require

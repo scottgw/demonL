@@ -99,6 +99,11 @@ indexType = BasicType IntType
 
 actionType = FuncType [indexType] (BasicType BoolType)
 
+attrType :: String -> Type -> YicesType
+attrType structType resultType = 
+    FuncType [BasicType (ClassType structType [])]
+             (FuncType [indexType] (BasicType resultType))
+
 procYicesType :: Procedure Expr -> YicesType
 procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
   let ytypes = map (BasicType . declType) args
@@ -132,10 +137,26 @@ defineTypeY (DefineType name t) =
     list $ [symbol "define-type", symbol name, typeY t]
                                   
 
-procStructs = defineTypeY . structConvY
+procStruct = defineTypeY . structConvY
+
+
+attrConvY (StructType name decls) = map (declToFunction name) decls
+
+declToFunction :: String -> Decl -> Define
+declToFunction typeName (Decl name resultType) =
+    Define (typeName ++ "_" ++ name)
+           (attrType typeName resultType)
+           Nothing
+
+procAttrs :: StructType -> [L.Lisp]
+procAttrs = map defineY . attrConvY
 
 procDom :: Domain -> [L.Lisp]
-procDom (Domain procs types) = map procConv procs ++ map procStructs types
+procDom (Domain procs types) = 
+    let actions = map procConv procs 
+        attrs = concatMap procAttrs types
+        refTypes = map procStruct types
+    in actions ++ attrs ++ refTypes
 
 -- read and convert the test-domain to yices format
 testCase = do
