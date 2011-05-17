@@ -7,11 +7,9 @@ import qualified Data.AttoLisp as L
 import Parser
 import Types
 
-declsY :: [Decl] -> L.Lisp
-declsY ds = list (concatMap declY ds)
-
-declY :: Decl -> [L.Lisp]
-declY (Decl name typ) = [symbol name, symbol "::", basicTypeY typ]
+declsToArgsY :: [Decl] -> L.Lisp
+declsToArgsY ds = list (concatMap declY ds)
+  where declY (Decl name typ) = [symbol name, symbol "::", basicTypeY typ]
 
 basicTypeY :: Type -> L.Lisp
 basicTypeY IntType = symbol "int"
@@ -24,7 +22,7 @@ basicTypeY NoType = error "no type"
 -- Lambda conversion
 
 lambdaY :: [Decl] -> L.Lisp -> L.Lisp
-lambdaY args expr = list [symbol "lambda", declsY args, expr]
+lambdaY args expr = list [symbol "lambda", declsToArgsY args, expr]
 
 list = L.List
 
@@ -58,9 +56,6 @@ relLisp Gt  = ">"
 relLisp Gte = ">="
 
 andY es = list $ symbol "and" : es
-
-b2t :: B.ByteString -> T.Text
-b2t = T.pack . B.unpack
 
 symbol :: String -> L.Lisp
 symbol = L.Symbol . T.pack
@@ -134,7 +129,7 @@ structConvY (StructType name _) = DefineType refName (Scalar objs)
           objs = map (idxRefObj name) [1 .. maxObjs]
 
 defineTypeY (DefineType name t) = 
-    list $ [symbol "define-type", symbol name, typeY t]
+    list [symbol "define-type", symbol name, typeY t]
                                   
 
 procStruct = defineTypeY . structConvY
