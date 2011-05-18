@@ -106,31 +106,8 @@ table =
      ,binary "or"  (BinOpExpr Or)   AssocLeft
      ,binary "implies"  (BinOpExpr Implies)   AssocLeft
      ]
---    ,[otherOperator]
---    ,[accessP]
     ,[prefix "old" (UnOpExpr Old)]
     ]
-
-accessP :: Stream s m Char => Operator s u m Expr
-accessP = Postfix $ flip Access <$> (identifier <* dot)
-
-symbols = "*/-+\\|="
-
-symbolsOp :: Stream s m Char => ParsecT s u m String
-symbolsOp = many1 (oneOf symbols)
-
-otherOpP :: Stream s m Char => ParsecT s u m String
-otherOpP = do
-  o <- symbolsOp
-  spaces
-  return o
-
-otherOperator :: Stream s m Char => Operator s u m Expr
-otherOperator = do
-  Infix (do
-            op <- otherOpP
-            return (BinOpExpr (SymbolOp op))
-        ) AssocLeft
 
 prefix :: Stream s m Char => 
           String -> (Expr -> Expr) -> Operator s u m Expr
