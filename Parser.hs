@@ -12,7 +12,6 @@ import Text.Parsec
 import Text.Parsec.Expr
 import Text.Parsec.ByteString
 
-import ParserPosition
 import ParserBasic
 import Types
 
