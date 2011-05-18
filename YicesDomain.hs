@@ -22,7 +22,7 @@ basicTypeY NoType = error "no type"
 -- Lambda conversion
 
 lambdaY :: [Decl] -> L.Lisp -> L.Lisp
-lambdaY args expr = list [symbol "lambda", declsToArgsY args, expr]
+lambdaY args lispExpr = list [symbol "lambda", declsToArgsY args, lispExpr]
 
 list = L.List
 
@@ -112,16 +112,14 @@ defineY (Define {defName = name, defType = typ, defExpr = exprM}) =
   in  list $ noExpr ++ maybe [] (:[]) exprM
 
 procConvY :: Procedure Expr -> Define
-procConvY proc@(Procedure {prcdName = name, prcdReq = req, prcdEns = ens}) = 
-  let
-    pres  = clausesY req
-    posts = clausesY ens
-    ands  = andY $ pres ++ posts
-  in Define name (procYicesType proc) (Just $ actionExpr proc)
+procConvY proc =
+  Define (prcdName proc) (procYicesType proc) (Just $ actionExpr proc)
 
 procConv = defineY . procConvY
 
+maxObjs :: Int
 maxObjs = 10
+
 idxRefObj name i = name ++ "_obj" ++ show i
 
 structConvY (StructType name _) = DefineType refName (Scalar objs)
