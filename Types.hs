@@ -5,7 +5,7 @@ import Text.Parsec.ByteString
 
 import ParserBasic
 
-data Type = ClassType ClassName [Type]
+data Type = StructType String [Type]
           | IntType
           | DoubleType
           | VoidType
@@ -24,14 +24,10 @@ instance Show Type where
     show NoType        = "notype"
     show VoidType      = "NONE"
     show BoolType      = "BOOLEAN"
-    show (ClassType s gs) = s ++ show gs
+    show (StructType s gs) = s ++ show gs
 
-
-type ClassName = String
-
-classNameType :: Type -> String
-classNameType (ClassType cn _) = cn 
-classNameType _ = error "Non-class type"
+typeP :: Parser Type
+typeP = intType <|> boolType <|> doubleType <|> classType
 
 intType :: Parser Type
 intType = reserved "INTEGER" >> return IntType
@@ -46,16 +42,4 @@ classType :: Parser Type
 classType = do
   i  <- identifier
   gs <- option [] (squares (sepBy typeP comma))
-  return (ClassType i gs)
-
-detType :: Parser Type
-detType = reserved "detachable" >> baseType
-
-attType :: Parser Type
-attType = reserved "attached" >> baseType
-
-typeP :: Parser Type
-typeP = detType <|> attType <|> baseType
-
-baseType :: Parser Type
-baseType = intType <|> boolType <|> doubleType <|> classType
+  return (StructType i gs)

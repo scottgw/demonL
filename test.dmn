@@ -1,7 +1,11 @@
-type stock { shares: INTEGER open: BOOLEAN }
+type Stock { 
+  shares: INTEGER
+  open: BOOLEAN
+  }
 
-foo (a: INTEGER, b: INTEGER)
+foo (a: INTEGER, s: Stock)
     require
-        some: a > b.bar.baz.biz.sqa
+        some: a > s.shares
     ensure
-        thing: 2*a > b + 1
+        thing: 2*a > s.shares + 1 and old s.shares > s.shares
+

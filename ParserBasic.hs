@@ -24,9 +24,7 @@ lexeme =
                concat [["True","False"]
                       ,["Void"]
                       ,["type"]
-                      ,["attached","as"]
-                      ,["create"]
-                      ,["Result", "Current"]
+                      ,["Result"]
                       ,["ensure","require","invariant"]
                       ,["INTEGER","REAL","BOOLEAN"]
                       ],
@@ -37,7 +35,7 @@ resOps = concat [["*","+"]
                 ,["<=","=", "/="]
                 ,["<",">"]
                 ,["\"[","]\""]
-                ,[";","{","}",":","."]
+                ,["{","}",":","."]
                 ,["not", "and", "and then", "or", "or else", "implies"]
                 ]
 
@@ -56,9 +54,6 @@ comma = P.comma lexeme
 dot :: Stream s m Char => ParsecT s u m String
 dot = P.dot lexeme
 
-semicolon :: Parser ()
-semicolon = reservedOp ";"
-
 float :: Stream s m Char => ParsecT s u m Double
 float = P.float lexeme
 
@@ -71,23 +66,8 @@ reservedOp = P.reservedOp lexeme
 parens :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 parens = P.parens lexeme
 
-angles :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
-angles = P.angles lexeme
-
 braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 braces = P.braces lexeme
 
 squares :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 squares = P.squares lexeme
-
-stringLiteral :: Stream s m Char => ParsecT s u m String
-stringLiteral = P.stringLiteral lexeme
-
-anyString :: Parser String
-anyString = blockString <|> stringLiteral
-
-blockString :: Parser String
-blockString = reservedOp "\"[" >> manyTill anyChar (reservedOp "]\"")
-
-eol :: Parser ()
-eol = semicolon <|> option () (newline >> return ())

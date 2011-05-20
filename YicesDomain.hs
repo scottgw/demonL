@@ -1,160 +1,148 @@
 {-# LANGUAGE OverloadedStrings #-}
-module YicesDomain where
+module YicesDomain (testCase) where
 
-import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
-import qualified Data.AttoLisp as L
+import Math.SMT.Yices.Syntax
+
+import AST
 import Parser
 import Types
 
-declsToArgsY :: [Decl] -> L.Lisp
-declsToArgsY ds = list (concatMap declY ds)
-  where declY (Decl name typ) = [symbol name, symbol "::", basicTypeY typ]
+-- Type conversion
 
-basicTypeY :: Type -> L.Lisp
-basicTypeY IntType = symbol "int"
-basicTypeY BoolType = symbol "bool"
-basicTypeY DoubleType = symbol "real"
-basicTypeY VoidType = symbol "NONE"
-basicTypeY (ClassType n _) = symbol n
+basicTypeY :: Type -> TypY
+basicTypeY IntType = VarT "int"
+basicTypeY BoolType = VarT "bool"
+basicTypeY DoubleType = VarT "real"
+basicTypeY VoidType = VarT "NONE"
+basicTypeY (StructType n _) = VarT $ structName n
 basicTypeY NoType = error "no type"
 
--- Lambda conversion
-
-lambdaY :: [Decl] -> L.Lisp -> L.Lisp
-lambdaY args lispExpr = list [symbol "lambda", declsToArgsY args, lispExpr]
-
-list = L.List
+structName n = n ++ "_ref"
 
 -- Expression conversion
-exprY :: Expr -> L.Lisp
-exprY (Call name args) = list (symbol name : map exprY args)
-exprY (Var v) = symbol v
-exprY (BinOpExpr bop e1 e2) = exprY (Call (binLisp bop) [e1, e2])
-exprY (Access e f) = exprY (Call f [e])
-exprY (LitInt i) = symbol (show i)
-exprY (LitBool True) = symbol "true"
-exprY (LitBool False) = symbol "false"
+exprY :: ExpY -> Expr -> ExpY
+exprY i (Call name args) = APP (APP (VarE name) (map (exprY i) args)) [i]
+exprY i (BinOpExpr bop e1 e2) = binYices bop (exprY i e1) (exprY i e2)
+exprY i (UnOpExpr uop e) = unaryYices uop i e
+exprY i (Access e f) = exprY i (Call f [e])
+exprY _ (Var v) = VarE v
+exprY _ (LitInt int) = LitI (fromIntegral int)
+exprY _ (LitBool b) = LitB b
+exprY _ (LitDouble d) = LitR (toRational d)
 
-binaryLisp = symbol . binLisp
+unaryYices Not i e = NOT (exprY i e)
+unaryYices Neg i e = LitI 0 :-: exprY i e
+unaryYices Old _ e = exprY preIdx e 
 
-binLisp Add = "+"
-binLisp Sub = "-"
-binLisp Mul = "*"
-binLisp Div = "/"
-binLisp Or = "or"
-binLisp And = "and"
-binLisp Implies = "implies"
-binLisp (SymbolOp s) = s
-binLisp (RelOp op _) = relLisp op
+binYices Add = (:+:)
+binYices Sub = (:-:)
+binYices Mul = (:*:)
+binYices Div = (:/:)
+binYices Implies = (:=>)
+binYices Or = \ x y -> OR [x, y]
+binYices And = \ x y -> AND [x, y]
+binYices ArrayIndex = \ x y -> APP x [y]
+binYices (RelOp op _) = relYices op
 
-relLisp Lte = "<="
-relLisp Lt  = "<"
-relLisp Eq  = "="
-relLisp Neq = "/="
-relLisp Gt  = ">"
-relLisp Gte = ">="
+relYices Lte = (:<=)
+relYices Lt  = (:<)
+relYices Eq  = (:=)
+relYices Neq = (:/=)
+relYices Gt  = (:>)
+relYices Gte = (:>=)
 
-andY es = list $ symbol "and" : es
+clauseExprs = map clauseExpr
 
-symbol :: String -> L.Lisp
-symbol = L.Symbol . T.pack
+-- Action creation
 
-clauseY  = exprY . clauseExpr
-clausesY = map clauseY
+declsToArgsY :: [Decl] -> [(String, TypY)]
+declsToArgsY = concatMap declY
+  where declY (Decl name typ) = [(name, basicTypeY typ)]
 
+idxStr = "idx"
+preIdx = VarE idxStr
+postIdx = incr preIdx
+incr = (:+: LitI 1)
+indexType = basicTypeY IntType
 
+actionType = ARR [indexType, basicTypeY BoolType]
 
-data Define = 
-  Define 
-  {
-    defName :: String,
-    defType :: YicesType,
-    defExpr :: Maybe L.Lisp
-  }
-
+actionBody :: [Expr] -> [Expr] -> ExpY
+actionBody pres posts = 
+  actionBodyLambda (AND $ map (exprY preIdx) pres ++ map (exprY postIdx) posts)
+  
+actionBodyLambda = LAMBDA [(idxStr, indexType)]
+        
+actionExpr :: Procedure Expr -> ExpY
 actionExpr (Procedure {prcdArgs = args, prcdReq = req, prcdEns = ens}) =
   let
-    pres  = clausesY req
-    posts = clausesY ens
-    ands  = andY $ pres ++ posts
-  in lambdaY args ands
-   
-data DefineType = DefineType String YicesType
-     
-data YicesType = BasicType Type
-               | FuncType [YicesType] YicesType
-               | Scalar [String]
+    pres  = clauseExprs req
+    posts = clauseExprs ens
+    body  = actionBody pres posts
+  in LAMBDA (declsToArgsY args) body
 
-typeY (BasicType t) = basicTypeY t
-typeY (FuncType ts r) = list $ symbol "->" : map typeY (ts ++ [r])
-typeY (Scalar ss) = list $ symbol "scalar" : map symbol ss
-
-indexType = BasicType IntType
-
-actionType = FuncType [indexType] (BasicType BoolType)
-
-attrType :: String -> Type -> YicesType
+attrType :: String -> Type -> TypY
 attrType structType resultType = 
-    FuncType [BasicType (ClassType structType [])]
-             (FuncType [indexType] (BasicType resultType))
+    ARR  [basicTypeY (StructType structType []),
+          ARR [indexType, basicTypeY resultType]]
 
-procYicesType :: Procedure Expr -> YicesType
+procYicesType :: Procedure Expr -> TypY
 procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
-  let ytypes = map (BasicType . declType) args
+  let ytypes = map (basicTypeY . declType) args
   in  
    case resultType of
-     NoType -> FuncType ytypes actionType
+     NoType -> ARR (ytypes ++ [actionType])
      _ -> error "only works on proper procedures, without a result"
 
-defineY (Define {defName = name, defType = typ, defExpr = exprM}) = 
-  let noExpr = [symbol "define", symbol name, symbol "::", typeY typ]
-  in  list $ noExpr ++ maybe [] (:[]) exprM
-
-procConvY :: Procedure Expr -> Define
+procConvY :: Procedure Expr -> CmdY
 procConvY proc =
-  Define (prcdName proc) (procYicesType proc) (Just $ actionExpr proc)
-
-procConv = defineY . procConvY
+  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr proc)
 
 maxObjs :: Int
 maxObjs = 10
 
-idxRefObj name i = name ++ "_obj" ++ show i
-
-structConvY (StructType name _) = DefineType refName (Scalar objs)
-    where refName = name ++ "_ref"
+structConvY (Struct name _) = DEFTYP (structName name) (Just $ SCALAR objs)
+    where idxRefObj nm i = nm ++ "_obj" ++ show i
           objs = map (idxRefObj name) [1 .. maxObjs]
 
-defineTypeY (DefineType name t) = 
-    list [symbol "define-type", symbol name, typeY t]
-                                  
+attrConvY (Struct name decls) = map (declToFunction name) decls
 
-procStruct = defineTypeY . structConvY
-
-
-attrConvY (StructType name decls) = map (declToFunction name) decls
-
-declToFunction :: String -> Decl -> Define
+declToFunction :: String -> Decl -> CmdY
 declToFunction typeName (Decl name resultType) =
-    Define (typeName ++ "_" ++ name)
-           (attrType typeName resultType)
-           Nothing
+  DEFINE (attrFuncName, attrType typeName resultType) Nothing
+  where attrFuncName = typeName ++ "_" ++ name
 
-procAttrs :: StructType -> [L.Lisp]
-procAttrs = map defineY . attrConvY
-
-procDom :: Domain -> [L.Lisp]
+procDom :: Domain -> [CmdY]
 procDom (Domain procs types) = 
-    let actions = map procConv procs 
-        attrs = concatMap procAttrs types
-        refTypes = map procStruct types
-    in actions ++ attrs ++ refTypes
+    let actions  = map procConvY procs 
+        attrs    = concatMap attrConvY types
+        refTypes = map structConvY types
+        eqs      = map structEquals types
+    in concat [refTypes
+              ,attrs
+              ,eqs
+              ,actions
+              ]
+
+-- Frame condition
+structEquals (Struct name decls) = 
+  let
+    obj = Var "obj"
+    accessObj dn = Access obj dn
+    eqExpr (Decl dn _) = BinOpExpr (RelOp Eq NoType)
+                                   (accessObj dn)
+                                   (UnOpExpr Old $ accessObj dn)
+    eqAttrs = map eqExpr decls
+    lamExpr = actionBodyLambda $ AND $ map (exprY postIdx) eqAttrs
+  in DEFINE (name ++ "_eq", actionType) (Just lamExpr)
+        
 
 -- read and convert the test-domain to yices format
 testCase = do
   str <- B.readFile "test.dmn"
   let domE = parseDomain str
+  print domE
   case domE of
     Right dom -> mapM_ (putStrLn . show) (procDom dom)
     Left e -> print e
