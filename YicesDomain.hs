@@ -60,6 +60,7 @@ declsToArgsY :: [Decl] -> [(String, TypY)]
 declsToArgsY = concatMap declY
   where declY (Decl name typ) = [(name, basicTypeY typ)]
 
+idxDecl = (idxStr, indexType)
 idxStr = "idx"
 preIdx = VarE idxStr
 postIdx = incr preIdx
@@ -102,9 +103,10 @@ procConvY proc =
 maxObjs :: Int
 maxObjs = 10
 
+idxRefObj nm i = nm ++ "_obj" ++ show i
+
 structConvY (Struct name _) = DEFTYP (structName name) (Just $ SCALAR objs)
-    where idxRefObj nm i = nm ++ "_obj" ++ show i
-          objs = map (idxRefObj name) [1 .. maxObjs]
+    where objs = map (idxRefObj name) [1 .. maxObjs]
 
 attrConvY (Struct name decls) = map (declToFunction name) decls
 
@@ -119,13 +121,29 @@ procDom (Domain procs types) =
         attrs    = concatMap attrConvY types
         refTypes = map structConvY types
         eqs      = map structEquals types
+        frames   = map frameAllObjs types
     in concat [refTypes
               ,attrs
+              ,frames
               ,eqs
               ,actions
               ]
 
--- Frame condition
+-- Frame conditions
+excludeType    = VarT "exclude_type"
+excludePredE   = VarE excludePredStr
+excludePredStr = "exclude_pred"
+excludeDecl    = (excludePredStr, excludeType)
+
+frameAllObjs (Struct name decls) =
+  let
+    frameName     = name ++ "_frame_all"
+    typeEq        = VarE $ name ++ "_eq"
+    singleFrame i = APP typeEq [excludePredE, VarE (idxRefObj name i), preIdx]
+    allFrames     = map singleFrame [1 .. maxObjs]
+    frameLambda   = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
+  in DEFINE (frameName, excludeType) (Just frameLambda)
+
 structEquals (Struct name decls) = 
   let
     obj = Var "obj"
