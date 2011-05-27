@@ -1,6 +1,5 @@
 module Main where
 
-import Math.SMT.Yices.Syntax
 import Text.Parsec.ByteString
 
 import System

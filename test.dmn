@@ -1,11 +1,10 @@
 type Stock { 
   shares: INTEGER
-  open: BOOLEAN
+  is_open: BOOLEAN
   }
 
-foo (a: INTEGER, s: Stock)
-    require
-        some: a > s.shares
-    ensure
-        thing: 2*a > s.shares + 1 and old s.shares > s.shares
-
+Stock_open (s: Stock)
+  require
+    not_open: not s.is_open
+  ensure
+    open: s.is_open

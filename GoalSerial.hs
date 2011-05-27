@@ -1,6 +1,5 @@
 module GoalSerial where
 
-import qualified Data.Map as M
 import Math.SMT.Yices.Syntax
 
 import Yices
@@ -11,7 +10,7 @@ import Types
 goalCommands :: SerialGoal -> [CmdY]
 goalCommands goal = concat [ goalDefs goal
                            , goalInitState goal
-                           , goalExpr goal
+                           , goalAssert goal
                            ]
 
 goalDefs = map typeDefinition . declsToArgsY . vars
@@ -28,4 +27,4 @@ assignmentExprs (Assignment name vals) =
 
 steps = 5
 
-goalExpr = (:[]) . ASSERT . exprY (LitI 5) . goal
+goalAssert = (:[]) . ASSERT . exprY (LitI steps) . goalExpr
