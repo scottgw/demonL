@@ -100,7 +100,7 @@ excludePredE   = VarE excludePredStr
 excludePredStr = "exclude_pred"
 excludeDecl    = (excludePredStr, excludeType)
 
-frameAllObjs (Struct name decls) =
+frameAllObjs (Struct name _) =
   let
     frameName     = name ++ "_frame_all"
     typeEq        = VarE $ name ++ "_eq"
