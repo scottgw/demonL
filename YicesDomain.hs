@@ -1,56 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
-module YicesDomain (testCase) where
+module YicesDomain (generateDomain) where
 
-import qualified Data.ByteString.Char8 as B
 import Math.SMT.Yices.Syntax
+
+import Text.Parsec.ByteString
 
 import AST
 import Parser
 import Types
-
--- Type conversion
-
-basicTypeY :: Type -> TypY
-basicTypeY IntType = VarT "int"
-basicTypeY BoolType = VarT "bool"
-basicTypeY DoubleType = VarT "real"
-basicTypeY VoidType = VarT "NONE"
-basicTypeY (StructType n _) = VarT $ structName n
-basicTypeY NoType = error "no type"
-
-structName n = n ++ "_ref"
-
--- Expression conversion
-exprY :: ExpY -> Expr -> ExpY
-exprY i (Call name args) = APP (APP (VarE name) (map (exprY i) args)) [i]
-exprY i (BinOpExpr bop e1 e2) = binYices bop (exprY i e1) (exprY i e2)
-exprY i (UnOpExpr uop e) = unaryYices uop i e
-exprY i (Access e f) = exprY i (Call f [e])
-exprY _ (Var v) = VarE v
-exprY _ (LitInt int) = LitI (fromIntegral int)
-exprY _ (LitBool b) = LitB b
-exprY _ (LitDouble d) = LitR (toRational d)
-
-unaryYices Not i e = NOT (exprY i e)
-unaryYices Neg i e = LitI 0 :-: exprY i e
-unaryYices Old _ e = exprY preIdx e 
-
-binYices Add = (:+:)
-binYices Sub = (:-:)
-binYices Mul = (:*:)
-binYices Div = (:/:)
-binYices Implies = (:=>)
-binYices Or = \ x y -> OR [x, y]
-binYices And = \ x y -> AND [x, y]
-binYices ArrayIndex = \ x y -> APP x [y]
-binYices (RelOp op _) = relYices op
-
-relYices Lte = (:<=)
-relYices Lt  = (:<)
-relYices Eq  = (:=)
-relYices Neq = (:/=)
-relYices Gt  = (:>)
-relYices Gte = (:>=)
+import Yices
 
 clauseExprs = map clauseExpr
 
@@ -59,13 +17,6 @@ clauseExprs = map clauseExpr
 declsToArgsY :: [Decl] -> [(String, TypY)]
 declsToArgsY = concatMap declY
   where declY (Decl name typ) = [(name, basicTypeY typ)]
-
-idxDecl = (idxStr, indexType)
-idxStr = "idx"
-preIdx = VarE idxStr
-postIdx = incr preIdx
-incr = (:+: LitI 1)
-indexType = basicTypeY IntType
 
 actionType = ARR [indexType, basicTypeY BoolType]
 
@@ -101,7 +52,7 @@ procConvY proc =
   DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr proc)
 
 maxObjs :: Int
-maxObjs = 10
+maxObjs = 4
 
 idxRefObj nm i = nm ++ "_obj" ++ show i
 
@@ -115,6 +66,19 @@ declToFunction typeName (Decl name resultType) =
   DEFINE (attrFuncName, attrType typeName resultType) Nothing
   where attrFuncName = typeName ++ "_" ++ name
 
+tagName p = prcdName p ++ "_tag"
+
+procTags procs = DEFTYP "proc_tag" (Just $ SCALAR tags)
+  where tags = map tagName procs
+        
+allRefType = VarT "ALL_ref"
+
+excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
+tagArray = DEFTYP "tag_array" 
+           (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
+
+preamble = [excludeTypeDecl, tagArray]
+
 procDom :: Domain -> [CmdY]
 procDom (Domain procs types) = 
     let actions  = map procConvY procs 
@@ -122,10 +86,11 @@ procDom (Domain procs types) =
         refTypes = map structConvY types
         eqs      = map structEquals types
         frames   = map frameAllObjs types
-    in concat [refTypes
+    in preamble ++ [procTags procs] ++ 
+       concat [refTypes
               ,attrs
-              ,frames
               ,eqs
+              ,frames
               ,actions
               ]
 
@@ -155,12 +120,12 @@ structEquals (Struct name decls) =
     lamExpr = actionBodyLambda $ AND $ map (exprY postIdx) eqAttrs
   in DEFINE (name ++ "_eq", actionType) (Just lamExpr)
         
+outputFileName fn = fn ++ ".lisp"
+showDomain = unlines . map show . procDom
 
--- read and convert the test-domain to yices format
-testCase = do
-  str <- B.readFile "test.dmn"
-  let domE = parseDomain str
-  print domE
-  case domE of
-    Right dom -> mapM_ (putStrLn . show) (procDom dom)
-    Left e -> print e
+generateDomain fileName = do
+  domE <- parseFromFile domain fileName
+  either 
+    (\e -> putStrLn ("Error parsing demonic domain: " ++ fileName) >> print e)
+    (\d -> writeFile (outputFileName fileName) (showDomain d))
+    domE

@@ -1,13 +1,16 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Parser (parseDomain, parseExpr) where
+module Parser (domain, serialGoal) where
 
 import Control.Applicative hiding ((<|>), optional, many)
+
+import Data.Map as M
 
 import Text.Parsec
 import Text.Parsec.Expr
 import Text.Parsec.ByteString
 
 import AST
+import Goal
 import ParserBasic
 import Types
 
@@ -113,5 +116,11 @@ domain = foldl (\d -> either (addStruct d) (addProc d)) emptyDomain <$> eithers
     prcs = Right <$> procedureP 
     eithers = many (strct <|> prcs)
 
-parseExpr = parse expr ""
-parseDomain = parse domain ""
+assign = Assignment <$> identifier <*> braces nameMap 
+  where
+    nameMap  = M.fromList <$> many nameExpr
+    nameExpr = (,) <$> identifier <*> (reservedOp "=" *> expr)
+
+serialGoal = SerialGoal <$> many decl 
+                        <*> many assign 
+                        <*> (reservedOp "->" *> expr)
