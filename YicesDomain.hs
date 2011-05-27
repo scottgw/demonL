@@ -13,11 +13,6 @@ import Yices
 clauseExprs = map clauseExpr
 
 -- Action creation
-
-declsToArgsY :: [Decl] -> [(String, TypY)]
-declsToArgsY = concatMap declY
-  where declY (Decl name typ) = [(name, basicTypeY typ)]
-
 actionType = ARR [indexType, basicTypeY BoolType]
 
 actionBody :: [Expr] -> [Expr] -> ExpY

@@ -1,1 +1,7 @@
+a : STOCK
+
+a {amount = 1,
+   open  = True
+  }
+
 -> 1 + 1 > 2

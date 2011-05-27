@@ -1,16 +1,18 @@
 module Main where
 
+import Math.SMT.Yices.Syntax
 import Text.Parsec.ByteString
 
 import System
 
 import Parser (serialGoal)
 import YicesDomain
+import GoalSerial
 
 main = do
   args <- getArgs
   if length args < 2 
-    then putStrLn "demonL <domain> <serialization>"
+    then putStrLn "Usage: demonL <domain> <serialization>"
     else 
       do let (domainFileName:serialFileName:_) = args
          generateDomain domainFileName
@@ -19,5 +21,5 @@ main = do
 runSerialGoal fileName = do
   serialE <- parseFromFile serialGoal fileName
   case serialE of
-    Right s -> print s
+    Right s -> print (goalCommands s)
     Left e -> print e

@@ -58,3 +58,8 @@ preIdx = VarE idxStr
 postIdx = incr preIdx
 incr = (:+: LitI 1)
 indexType = basicTypeY IntType
+
+
+declsToArgsY :: [Decl] -> [(String, TypY)]
+declsToArgsY = concatMap declY
+  where declY (Decl name typ) = [(name, basicTypeY typ)]

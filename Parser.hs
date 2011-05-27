@@ -3,8 +3,6 @@ module Parser (domain, serialGoal) where
 
 import Control.Applicative hiding ((<|>), optional, many)
 
-import Data.Map as M
-
 import Text.Parsec
 import Text.Parsec.Expr
 import Text.Parsec.ByteString
@@ -118,9 +116,9 @@ domain = foldl (\d -> either (addStruct d) (addProc d)) emptyDomain <$> eithers
 
 assign = Assignment <$> identifier <*> braces nameMap 
   where
-    nameMap  = M.fromList <$> many nameExpr
+    nameMap  = nameExpr `sepBy` comma
     nameExpr = (,) <$> identifier <*> (reservedOp "=" *> expr)
 
-serialGoal = SerialGoal <$> many decl 
+serialGoal = SerialGoal <$> many (try decl)
                         <*> many assign 
                         <*> (reservedOp "->" *> expr)
