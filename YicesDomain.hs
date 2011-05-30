@@ -51,28 +51,34 @@ maxObjs = 4
 
 idxRefObj nm i = nm ++ "_obj" ++ show i
 
-structConvY (Struct name _) = DEFTYP (structName name) (Just $ SCALAR objs)
+structConvY (Struct name _) = DEFTYP (structStr name) (Just $ SCALAR objs)
     where objs = map (idxRefObj name) [1 .. maxObjs]
 
 attrConvY (Struct name decls) = map (declToFunction name) decls
 
 declToFunction :: String -> Decl -> CmdY
 declToFunction typeName (Decl name resultType) =
-  DEFINE (attrFuncName, attrType typeName resultType) Nothing
-  where attrFuncName = typeName ++ "_" ++ name
+  DEFINE (name, attrType typeName resultType) Nothing
+--  where attrFuncName = typeName ++ "_" ++ name
 
 tagName p = prcdName p ++ "_tag"
 
 procTags procs = DEFTYP "proc_tag" (Just $ SCALAR tags)
   where tags = map tagName procs
         
-allRefType = VarT "ALL_ref"
+allRefType = VarT allRefStr
+allRefStr = "ALL_ref"
 
 excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
 tagArray = DEFTYP "tag_array" 
            (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
 
 preamble = [excludeTypeDecl, tagArray]
+
+allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
+  where mkTyCon typ = let n = structName typ
+                      in (n, [(structStr n, VarT (structStr n))])
+          
 
 procDom :: Domain -> [CmdY]
 procDom (Domain procs types) = 
@@ -81,8 +87,10 @@ procDom (Domain procs types) =
         refTypes = map structConvY types
         eqs      = map structEquals types
         frames   = map frameAllObjs types
-    in preamble ++ [procTags procs] ++ 
-       concat [refTypes
+    in concat [[procTags procs]
+              ,refTypes
+              ,[allType types]
+              ,preamble
               ,attrs
               ,eqs
               ,frames
@@ -104,23 +112,30 @@ frameAllObjs (Struct name _) =
     frameLambda   = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
   in DEFINE (frameName, excludeType) (Just frameLambda)
 
+obj = Var "obj"
+objDecl t = ("obj", t)
+
+attrEq (Decl dn _) = exprY postIdx e
+  where 
+    acc = Access obj
+    e = BinOpExpr (RelOp Eq NoType) (acc dn) (UnOpExpr Old $ acc dn)
+
 structEquals (Struct name decls) = 
   let
-    obj = Var "obj"
-    accessObj dn = Access obj dn
-    eqExpr (Decl dn _) = BinOpExpr (RelOp Eq NoType)
-                                   (accessObj dn)
-                                   (UnOpExpr Old $ accessObj dn)
-    eqAttrs = map eqExpr decls
-    lamExpr = actionBodyLambda $ AND $ map (exprY postIdx) eqAttrs
-  in DEFINE (name ++ "_eq", actionType) (Just lamExpr)
+    typ = ARR [objType, indexType, boolTypeY]
+    objType = VarT $ structStr name
+    
+    lam = LAMBDA [objDecl objType, idxDecl] lamExpr
+
+    lamExpr = AND $ map attrEq decls
+  in DEFINE (name ++ "_eq", typ) (Just lam)
         
-outputFileName fn = fn ++ ".lisp"
-showDomain = unlines . map show . procDom
 
 generateDomain fileName = do
   domE <- parseFromFile domain fileName
   either 
-    (\e -> putStrLn ("Error parsing demonic domain: " ++ fileName) >> print e)
-    (\d -> writeFile (outputFileName fileName) (showDomain d))
+    (\e -> error ("Error parsing demonic domain: " ++ 
+                  fileName ++ "\n" ++ 
+                  show e))
+    (\d -> writeYices fileName (procDom d))
     domE

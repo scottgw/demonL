@@ -14,7 +14,7 @@ goalCommands goal = concat [ goalDefs goal
                            ]
 
 goalDefs = map typeDefinition . declsToArgsY . vars
-  where typeDefinition (n,t) = DEFTYP n (Just t)
+  where typeDefinition (n,t) = DEFINE (n,t) Nothing -- (Just t)
         
 goalInitState = concatMap assignmentExprs . values
 

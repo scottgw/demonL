@@ -1,11 +1,14 @@
 module Main where
 
+import Math.SMT.Yices.Pipe
+
 import Text.Parsec.ByteString
 
 import System
 
 import Parser (serialGoal)
-import YicesDomain
+import YicesDomain (generateDomain)
+import Yices
 import GoalSerial
 
 main = do
@@ -14,11 +17,21 @@ main = do
     then putStrLn "Usage: demonL <domain> <serialization>"
     else 
       do let (domainFileName:serialFileName:_) = args
-         generateDomain domainFileName
-         runSerialGoal serialFileName
+         domCmds  <- generateDomain domainFileName
+         goalCmds <- generateGoal serialFileName
+         runCommands domCmds goalCmds
 
-runSerialGoal fileName = do
+generateGoal fileName = do
   serialE <- parseFromFile serialGoal fileName
   case serialE of
-    Right s -> print (goalCommands s)
-    Left e -> print e
+    Right s -> writeYices fileName (goalCommands s)
+    Left e -> error $ show e
+
+
+runCommands dCmds gCmds = do
+  yPipe <- createYicesPipe "/home/scott/local/bin/yices" []
+  putStrLn "Running domain"
+  runCmdsY' yPipe dCmds
+  putStrLn "Running goal"
+  runCmdsY' yPipe gCmds
+  checkY yPipe >>= print

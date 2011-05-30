@@ -11,13 +11,13 @@ basicTypeY IntType = intTypeY
 basicTypeY BoolType = boolTypeY
 basicTypeY DoubleType = VarT "real"
 basicTypeY VoidType = VarT "NONE"
-basicTypeY (StructType n _) = VarT $ structName n
+basicTypeY (StructType n _) = VarT $ structStr n
 basicTypeY NoType = error "no type"
 
 intTypeY = VarT "int"
 boolTypeY = VarT "bool"
 
-structName n = n ++ "_ref"
+structStr n = n ++ "_ref"
 
 -- Expression conversion
 exprY :: ExpY -> Expr -> ExpY
@@ -63,3 +63,12 @@ indexType = basicTypeY IntType
 declsToArgsY :: [Decl] -> [(String, TypY)]
 declsToArgsY = concatMap declY
   where declY (Decl name typ) = [(name, basicTypeY typ)]
+
+
+outputFileName fn = fn ++ ".lisp"
+
+showCmds :: [CmdY] -> String
+showCmds = unlines . map show
+
+writeYices name cmds = 
+  writeFile (outputFileName name) (showCmds cmds) >> return cmds

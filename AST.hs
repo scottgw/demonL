@@ -36,7 +36,11 @@ data Domain =
   } deriving Show
 
 
-data Struct = Struct String [Decl] deriving Show
+data Struct = 
+  Struct 
+  { structName :: String 
+  , structDecls :: [Decl] 
+  } deriving Show
 
 data BinOp = Add
            | Sub
