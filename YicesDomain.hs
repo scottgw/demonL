@@ -131,11 +131,11 @@ structEquals (Struct name decls) =
   in DEFINE (name ++ "_eq", typ) (Just lam)
         
 
+parseErrorStr fn = (++) ("Error parsing demonic domain: " ++ fn ++ "\n")
+
 generateDomain fileName = do
   domE <- parseFromFile domain fileName
   either 
-    (\e -> error ("Error parsing demonic domain: " ++ 
-                  fileName ++ "\n" ++ 
-                  show e))
-    (\d -> writeYices fileName (procDom d))
+    (error . parseErrorStr fileName  . show)
+    (writeYices fileName . procDom)
     domE
