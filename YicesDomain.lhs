@@ -164,12 +164,6 @@ excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
 tagArray = DEFTYP "tag_array" 
            (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
 \end{code}
-\begin{code}
-preamble = [excludeTypeDecl, frameTypeDecl, tagArray]
-\end{code}
-\begin{code}
-
-\end{code}
 Frame conditions
 \begin{code}
 excludeType    = VarT "exclude_type"
