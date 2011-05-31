@@ -21,39 +21,65 @@ a domain to a series of Yices commands.
 There are areas of domain generation.
 \begin{code}
 procDom :: Domain -> [CmdY]
-procDom (Domain procs types) = 
+procDom d@(Domain procs types) = 
     let actions   = map procConvY procs 
-        argArrays = argArrayDefines types
         actionSel = actionOptions procs
-        attrs     = concatMap attrConvY types
-        refTypes  = map structConvY types
-        eqs       = map structEquals types
         frames    = map frameAllObjs types
-    in concat [[procTags procs]
-              ,refTypes
-              ,argArrays
-              ,[allType types]
-              ,preamble
-              ,attrs
-              ,eqs
+    in concat [tagsAndTypes d 
+              ,frameCmds
+              ,attrFunctions types
+              ,equalityFunctions types
               ,frames
               ,actions
               ,[actionSel]
               ]
 \end{code}
-There are two definitions which are independent of the
-other declarations in the file,
-namely the procedure tags (allowing us to track which actions were used)
-and the reference type declarations.
+The procedure tags (allowing us to track which actions were used)
+and reference type definitions are not dependent on
+other declarations in the file, 
+so they will be given first.
+
+The reference type declarations also require the generation of the
+``top'' type which can be any of the reference types.
+For simplicity, we also generate the argument array definitions as well.
 \begin{code}
-indepCmds (Domain procs types) = procTags procs : map structConvY types
+tagsAndTypes (Domain procs types) = procTagsAndArray ++ refDefines
+    where
+      procTagsAndArray = [procTags procs, tagArray]
+      refDefines = map structConvY types ++ 
+                   [allType types] ++ 
+                   argArrayDefines types
+\end{code}
+Next, the two framing types can be defined.
+The first is an exclusion predicate type which
+will tell if an element of the ``top'' type is to be
+excluded from a full frame-check.
+In other words it says if a reference is mutable.
+
+The second frame type is a predicate which will take an
+exclusion predicate and a state and ... 
+\begin{code}
+frameCmds = [excludeTypeDecl, frameTypeDecl]
+\end{code}
+Now the datatypes can be described in terms of their
+component parts.
+The types are essentially labelled records,
+so we translate their values over time to 
+functions of the data structure indexed by time.
+\begin{code}
+attrFunctions types = concatMap attrConvY types
+\end{code}
+Additionally, now that the types can be queried and described,
+they can be tested for structural equality.
+\begin{code}
+equalityFunctions types = map structEquals types
 \end{code}
 \begin{code}
 clauseExprs = map clauseExpr
 \end{code}
 Action Creation
 
-The actio type is the result type of any action,
+The action type is the result type of any action,
 namely a predicate on the state index to a boolean.
 This represents that an action can be true in a particular state.
 \begin{code}
@@ -65,7 +91,7 @@ actionBody pres posts =
   actionBodyLambda (AND $ map (exprY preIdx) pres ++ map (exprY postIdx) posts)
 \end{code}
 
-\begin{code}  
+\begin{code}
 actionBodyLambda = LAMBDA [(idxStr, indexType)]
 \end{code}
 
@@ -129,6 +155,9 @@ procTags procs = DEFTYP tagTypeStr (Just $ SCALAR tags)
 \begin{code}
 allRefType = VarT allRefStr
 allRefStr = "ALL_ref"
+allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
+  where mkTyCon typ = let n = structName typ
+                      in (n, [(structStr n, VarT (structStr n))])
 \end{code}
 \begin{code}
 excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
@@ -139,9 +168,7 @@ tagArray = DEFTYP "tag_array"
 preamble = [excludeTypeDecl, frameTypeDecl, tagArray]
 \end{code}
 \begin{code}
-allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
-  where mkTyCon typ = let n = structName typ
-                      in (n, [(structStr n, VarT (structStr n))])
+
 \end{code}
 Frame conditions
 \begin{code}
