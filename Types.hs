@@ -24,6 +24,7 @@ instance Show Type where
     show NoType        = "notype"
     show VoidType      = "NONE"
     show BoolType      = "BOOLEAN"
+    show (StructType s []) = s
     show (StructType s gs) = s ++ show gs
 
 typeP :: Parser Type
