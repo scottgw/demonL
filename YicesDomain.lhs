@@ -1,3 +1,8 @@
+\documentclass {article}
+%include polycode.fmt
+
+\begin{document}
+
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 module YicesDomain (generateDomain) where
@@ -10,91 +15,20 @@ import AST
 import Parser
 import Types
 import Yices
-
-clauseExprs = map clauseExpr
-
--- Action creation
-actionType = ARR [indexType, basicTypeY BoolType]
-
-actionBody :: [Expr] -> [Expr] -> ExpY
-actionBody pres posts = 
-  actionBodyLambda (AND $ map (exprY preIdx) pres ++ map (exprY postIdx) posts)
-  
-actionBodyLambda = LAMBDA [(idxStr, indexType)]
-        
-actionExpr :: Procedure Expr -> ExpY
-actionExpr (Procedure {prcdArgs = args, prcdReq = req, prcdEns = ens}) =
-  let
-    pres  = clauseExprs req
-    posts = clauseExprs ens
-    body  = actionBody pres posts
-  in LAMBDA (declsToArgsY args) body
-
-attrType :: String -> Type -> TypY
-attrType structType resultType = 
-    ARR  [basicTypeY (StructType structType []),
-          ARR [indexType, basicTypeY resultType]]
-
-procYicesType :: Procedure Expr -> TypY
-procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
-  let ytypes = map (basicTypeY . declType) args
-  in  
-   case resultType of
-     NoType -> ARR (ytypes ++ [actionType])
-     _ -> error "only works on proper procedures, without a result"
-
-procConvY :: Procedure Expr -> CmdY
-procConvY proc =
-  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr proc)
-
-maxObjs :: Int
-maxObjs = 4
-
-idxRefObj nm i = nm ++ "_obj" ++ show i
-
-structConvY (Struct name _) = DEFTYP (structStr name) (Just $ SCALAR objs)
-    where objs = map (idxRefObj name) [1 .. maxObjs]
-
-attrConvY (Struct name decls) = map (declToFunction name) decls
-
-declToFunction :: String -> Decl -> CmdY
-declToFunction typeName (Decl name resultType) =
-  DEFINE (name, attrType typeName resultType) Nothing
---  where attrFuncName = typeName ++ "_" ++ name
-
-tagName p = prcdName p ++ "_tag"
-tagType = VarT tagTypeStr
-tagTypeStr = "proc_tag"
-
-procTags procs = DEFTYP tagTypeStr (Just $ SCALAR tags)
-  where tags = map tagName procs
-        
-allRefType = VarT allRefStr
-allRefStr = "ALL_ref"
-
-excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
-tagArray = DEFTYP "tag_array" 
-           (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
-
-
-
-
-preamble = [excludeTypeDecl, frameTypeDecl, tagArray]
-
-allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
-  where mkTyCon typ = let n = structName typ
-                      in (n, [(structStr n, VarT (structStr n))])
-          
-
+\end{code}
+The `procDom' function is the top level conversion from
+a domain to a series of Yices commands.
+There are areas of domain generation.
+\begin{code}
 procDom :: Domain -> [CmdY]
 procDom (Domain procs types) = 
-    let actions  = map procConvY procs 
+    let actions   = map procConvY procs 
         argArrays = argArrayDefines types
         actionSel = actionOptions procs
-        attrs    = concatMap attrConvY types
-        refTypes = map structConvY types
-        eqs      = map structEquals types
-        frames   = map frameAllObjs types
+        attrs     = concatMap attrConvY types
+        refTypes  = map structConvY types
+        eqs       = map structEquals types
+        frames    = map frameAllObjs types
     in concat [[procTags procs]
               ,refTypes
               ,argArrays
@@ -106,20 +40,123 @@ procDom (Domain procs types) =
               ,actions
               ,[actionSel]
               ]
+\end{code}
+There are two definitions which are independent of the
+other declarations in the file,
+namely the procedure tags (allowing us to track which actions were used)
+and the reference type declarations.
+\begin{code}
+indepCmds (Domain procs types) = procTags procs : map structConvY types
+\end{code}
+\begin{code}
+clauseExprs = map clauseExpr
+\end{code}
+Action Creation
 
--- Frame conditions
+The actio type is the result type of any action,
+namely a predicate on the state index to a boolean.
+This represents that an action can be true in a particular state.
+\begin{code}
+actionType = ARR [indexType, basicTypeY BoolType]
+\end{code}
+\begin{code}
+actionBody :: [Expr] -> [Expr] -> ExpY
+actionBody pres posts = 
+  actionBodyLambda (AND $ map (exprY preIdx) pres ++ map (exprY postIdx) posts)
+\end{code}
+
+\begin{code}  
+actionBodyLambda = LAMBDA [(idxStr, indexType)]
+\end{code}
+
+\begin{code}
+actionExpr :: Procedure Expr -> ExpY
+actionExpr (Procedure {prcdArgs = args, prcdReq = req, prcdEns = ens}) =
+  let
+    pres  = clauseExprs req
+    posts = clauseExprs ens
+    body  = actionBody pres posts
+  in LAMBDA (declsToArgsY args) body
+\end{code}
+\begin{code}
+attrType :: String -> Type -> TypY
+attrType structType resultType = 
+    ARR  [basicTypeY (StructType structType []),
+          ARR [indexType, basicTypeY resultType]]
+\end{code}
+\begin{code}
+procYicesType :: Procedure Expr -> TypY
+procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
+  let ytypes = map (basicTypeY . declType) args
+  in  
+   case resultType of
+     NoType -> ARR (ytypes ++ [actionType])
+     _ -> error "only works on proper procedures, without a result"
+\end{code}
+\begin{code}
+procConvY :: Procedure Expr -> CmdY
+procConvY proc =
+  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr proc)
+\end{code}
+\begin{code}
+maxObjs :: Int
+maxObjs = 4
+\end{code}
+\begin{code}
+idxRefObj nm i = nm ++ "_obj" ++ show i
+\end{code}
+\begin{code}
+structConvY (Struct name _) = DEFTYP (structStr name) (Just $ SCALAR objs)
+    where objs = map (idxRefObj name) [1 .. maxObjs]
+\end{code}
+\begin{code}
+attrConvY (Struct name decls) = map (declToFunction name) decls
+\end{code}
+\begin{code}
+declToFunction :: String -> Decl -> CmdY
+declToFunction typeName (Decl name resultType) =
+  DEFINE (name, attrType typeName resultType) Nothing
+\end{code}
+\begin{code}
+tagName p = prcdName p ++ "_tag"
+tagType = VarT tagTypeStr
+tagTypeStr = "proc_tag"
+\end{code}
+\begin{code}
+procTags procs = DEFTYP tagTypeStr (Just $ SCALAR tags)
+  where tags = map tagName procs
+\end{code}
+\begin{code}
+allRefType = VarT allRefStr
+allRefStr = "ALL_ref"
+\end{code}
+\begin{code}
+excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
+tagArray = DEFTYP "tag_array" 
+           (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
+\end{code}
+\begin{code}
+preamble = [excludeTypeDecl, frameTypeDecl, tagArray]
+\end{code}
+\begin{code}
+allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
+  where mkTyCon typ = let n = structName typ
+                      in (n, [(structStr n, VarT (structStr n))])
+\end{code}
+Frame conditions
+\begin{code}
 excludeType    = VarT "exclude_type"
 excludePredE   = VarE excludePredStr
 excludePredStr = "exclude_pred"
 excludeDecl    = (excludePredStr, excludeType)
-
+\end{code}
+\begin{code}
 frameType = VarT frameTypeStr
 frameTypeStr = "frame_type"
 frameTypeDecl = DEFTYP frameTypeStr 
                 (Just $ ARR [excludeType, indexType, boolTypeY])
-
-
-
+\end{code}
+\begin{code}
 frameAllObjs (Struct name _) =
   let
     frameName     = name ++ "_frame_all"
@@ -128,34 +165,36 @@ frameAllObjs (Struct name _) =
     allFrames     = map singleFrame [1 .. maxObjs]
     frameLambda   = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
   in DEFINE (frameName, excludeType) (Just frameLambda)
-
+\end{code}
+\begin{code}
 obj = Var "obj"
 objDecl t = ("obj", t)
-
+\end{code}
+\begin{code}
 attrEq (Decl dn _) = exprY postIdx e
   where 
     acc = Access obj
     e = BinOpExpr (RelOp Eq NoType) (acc dn) (UnOpExpr Old $ acc dn)
-
+\end{code}
+\begin{code}
 structEquals (Struct name decls) = 
   let
     typ = ARR [objType, indexType, boolTypeY]
     objType = VarT $ structStr name
-    
     lam = LAMBDA [objDecl objType, idxDecl] lamExpr
-
     lamExpr = AND $ map attrEq decls
   in DEFINE (name ++ "_eq", typ) (Just lam)
-        
-
+\end{code}
+\begin{code}
 parseErrorStr fn = (++) ("Error parsing demonic domain: " ++ fn ++ "\n")
-
--- Group action definition
-
+\end{code}
+Group action definition
+\begin{code}
 actionsDecls = zip ["tag", "frm", "idx"] listActionsTypes
 actionsType = ARR listActionsTypes
 listActionsTypes = [tagType, frameType, indexType, boolTypeY]
-
+\end{code}
+\begin{code}
 actionOptions procs = 
   let actionsLambda = LAMBDA actionsDecls actionExprs
       actionExprs = OR $ map actionExpr procs
@@ -163,25 +202,29 @@ actionOptions procs =
       tagMatch p = VarE "tag" := VarE (tagName p)
       runProc p = APP (VarE $ prcdName p) (argsFromArray (prcdArgs p))
   in DEFINE ("actions", actionsType) (Just actionsLambda)
-
+\end{code}
+\begin{code}
 argArrayDefines types = 
   let argDef s = DEFINE (argArrayFromName s, argArrayType s) Nothing
   in map (argDef . structName) types
-
+\end{code}
+\begin{code}
 argArrayFromName n = n ++ "_arg"
 argArrayFromType = argArrayFromName . show
 argArrayVal = VarE . argArrayFromType
 argArrayType s = ARR [intTypeY, indexType, VarT (structStr s)]
-
+\end{code}
+\begin{code}
 argsFromArray = 
   let go i (Decl _ t) = APP (argArrayVal t) [LitI i, preIdx]
   in zipWith go [1..] 
-
+\end{code}
+\begin{code}
 generateDomain fileName = do
   domE <- parseFromFile domain fileName
   either 
     (error . parseErrorStr fileName  . show)
     (writeYices fileName . procDom)
     domE
-    
 \end{code}
+\end{document}
