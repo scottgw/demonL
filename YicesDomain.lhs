@@ -1,3 +1,4 @@
+\begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 module YicesDomain (generateDomain) where
 
@@ -62,8 +63,10 @@ declToFunction typeName (Decl name resultType) =
 --  where attrFuncName = typeName ++ "_" ++ name
 
 tagName p = prcdName p ++ "_tag"
+tagType = VarT tagTypeStr
+tagTypeStr = "proc_tag"
 
-procTags procs = DEFTYP "proc_tag" (Just $ SCALAR tags)
+procTags procs = DEFTYP tagTypeStr (Just $ SCALAR tags)
   where tags = map tagName procs
         
 allRefType = VarT allRefStr
@@ -73,7 +76,10 @@ excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
 tagArray = DEFTYP "tag_array" 
            (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
 
-preamble = [excludeTypeDecl, tagArray]
+
+
+
+preamble = [excludeTypeDecl, frameTypeDecl, tagArray]
 
 allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
   where mkTyCon typ = let n = structName typ
@@ -83,18 +89,22 @@ allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
 procDom :: Domain -> [CmdY]
 procDom (Domain procs types) = 
     let actions  = map procConvY procs 
+        argArrays = argArrayDefines types
+        actionSel = actionOptions procs
         attrs    = concatMap attrConvY types
         refTypes = map structConvY types
         eqs      = map structEquals types
         frames   = map frameAllObjs types
     in concat [[procTags procs]
               ,refTypes
+              ,argArrays
               ,[allType types]
               ,preamble
               ,attrs
               ,eqs
               ,frames
               ,actions
+              ,[actionSel]
               ]
 
 -- Frame conditions
@@ -102,6 +112,13 @@ excludeType    = VarT "exclude_type"
 excludePredE   = VarE excludePredStr
 excludePredStr = "exclude_pred"
 excludeDecl    = (excludePredStr, excludeType)
+
+frameType = VarT frameTypeStr
+frameTypeStr = "frame_type"
+frameTypeDecl = DEFTYP frameTypeStr 
+                (Just $ ARR [excludeType, indexType, boolTypeY])
+
+
 
 frameAllObjs (Struct name _) =
   let
@@ -133,9 +150,38 @@ structEquals (Struct name decls) =
 
 parseErrorStr fn = (++) ("Error parsing demonic domain: " ++ fn ++ "\n")
 
+-- Group action definition
+
+actionsDecls = zip ["tag", "frm", "idx"] listActionsTypes
+actionsType = ARR listActionsTypes
+listActionsTypes = [tagType, frameType, indexType, boolTypeY]
+
+actionOptions procs = 
+  let actionsLambda = LAMBDA actionsDecls actionExprs
+      actionExprs = OR $ map actionExpr procs
+      actionExpr p = AND [tagMatch p, runProc p]
+      tagMatch p = VarE "tag" := VarE (tagName p)
+      runProc p = APP (VarE $ prcdName p) (argsFromArray (prcdArgs p))
+  in DEFINE ("actions", actionsType) (Just actionsLambda)
+
+argArrayDefines types = 
+  let argDef s = DEFINE (argArrayFromName s, argArrayType s) Nothing
+  in map (argDef . structName) types
+
+argArrayFromName n = n ++ "_arg"
+argArrayFromType = argArrayFromName . show
+argArrayVal = VarE . argArrayFromType
+argArrayType s = ARR [intTypeY, indexType, VarT (structStr s)]
+
+argsFromArray = 
+  let go i (Decl _ t) = APP (argArrayVal t) [LitI i, preIdx]
+  in zipWith go [1..] 
+
 generateDomain fileName = do
   domE <- parseFromFile domain fileName
   either 
     (error . parseErrorStr fileName  . show)
     (writeYices fileName . procDom)
     domE
+    
+\end{code}

@@ -10,8 +10,11 @@ import Types
 goalCommands :: SerialGoal -> [CmdY]
 goalCommands goal = concat [ goalDefs goal
                            , goalInitState goal
+                           , goalAction
                            , goalAssert goal
                            ]
+
+goalAction = undefined
 
 goalDefs = map typeDefinition . declsToArgsY . vars
   where typeDefinition = flip DEFINE Nothing
@@ -25,6 +28,6 @@ assignmentExprs (Assignment name vals) =
     accessYices = ASSERT . exprY (LitI 0) . uncurry accessEq
   in map accessYices vals
 
-steps = 5
+steps = 1
 
 goalAssert = (:[]) . ASSERT . exprY (LitI steps) . goalExpr
