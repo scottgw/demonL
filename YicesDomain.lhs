@@ -65,7 +65,7 @@ one half handles the frame for a single reference,
 the other maintains that the frame for all references of a type
 are maintained at any given time.
 \begin{code}
-frames types = concatMap bothFrames types
+frames types = concatMap bothFrames types ++ [allFrameTypes types]
   where bothFrames t = [frameSingle t ,frameAllObjs t]
 \end{code}
 The actions that are generated from procedures have to main components:
@@ -232,7 +232,9 @@ frameSingle (Struct name _) =
     guardFrame  = APP (VarE excludePredStr) [allWrap name obj] :=> eq
     lambda      = LAMBDA [("obj", objType) , excludeDecl, idxDecl] guardFrame
   in DEFINE (frameName, singleType) (Just lambda)
+\end{code}
 
+\begin{code}
 frameAllObjs (Struct name _) =
   let
     frameName      = name ++ "_frame_all"
@@ -242,6 +244,17 @@ frameAllObjs (Struct name _) =
     allFrames      = map singleFrame [1 .. maxObjs]
     frameLambda    = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
   in DEFINE (frameName, frameType) (Just frameLambda)
+\end{code}
+
+\begin{code}
+allFrameTypes types = 
+  let
+    frameName   = "all-frames"
+    frameType   = ARR [excludeType, indexType, boolTypeY]
+    typeFrame s = APP (VarE $ structName s ++ "_frame_all") [excludePredE, preIdx]
+    allFrames  = map typeFrame types
+    lambda     = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
+  in DEFINE (frameName, frameType) (Just lambda)
 \end{code}
 
 \begin{code}

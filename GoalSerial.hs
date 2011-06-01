@@ -17,7 +17,7 @@ goalCommands goal = concat [ goalDefs goal
 goalAction i = 
   let act = APP (VarE "actions") [tag, exc, LitI i]
       tag = APP (VarE "tag_array") [LitI i]
-      exc = VarE "Stock_frame_all"
+      exc = VarE "all-frames"
   in ASSERT act
 
 goalDefs = map typeDefinition . declsToArgsY . vars
