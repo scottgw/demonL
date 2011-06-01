@@ -60,8 +60,13 @@ they can be tested for structural equality.
 equalityFunctions types = map structEquals types
 \end{code}
 The generation of the frames are then fairly straight-forward.
+The frame predicates for a type are divided into two pieces,
+one half handles the frame for a single reference,
+the other maintains that the frame for all references of a type
+are maintained at any given time.
 \begin{code}
-frames types = map frameAllObjs types
+frames types = concatMap bothFrames types
+  where bothFrames t = [frameSingle t ,frameAllObjs t]
 \end{code}
 The actions that are generated from procedures have to main components:
 \begin{itemize}
@@ -188,13 +193,16 @@ allRefType = VarT allRefStr
 allRefStr = "ALL_ref"
 allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
   where mkTyCon typ = let n = structName typ
-                      in (n, [(structStr n, VarT (structStr n))])
+                      in (allWrapStr n, [(allUnwrapStr n, VarT (structStr n))])
+allUnwrapStr str = structStr str ++ "_unwrap"
+allWrapStr str = structStr str ++ "_wrap"
+allWrap str v = APP (VarE $ allWrapStr str) [v]
 \end{code}
 
 \begin{code}
 excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
-tagArray = DEFTYP "tag_array" 
-           (Just $ ARR [intTypeY, indexType, VarT "proc_tag"])
+tagArray = DEFINE ("tag_array", ARR [intTypeY, indexType, VarT "proc_tag"]) 
+                  Nothing
 \end{code}
 Frame conditions
 
@@ -213,14 +221,26 @@ frameTypeDecl = DEFTYP frameTypeStr
 \end{code}
 
 \begin{code}
+frameSingle (Struct name _) =
+  let
+    frameName   = name ++ "_frame_single"
+    objType     = VarT $ structStr name
+    obj         = VarE "obj"
+    singleType  = ARR [objType, excludeType, indexType, boolTypeY]
+    eq          = APP (VarE $ name ++ "_eq") [obj, preIdx]
+    guardFrame  = APP (VarE excludePredStr) [allWrap name obj] :=> eq
+    lambda      = LAMBDA [("obj", objType) , excludeDecl, idxDecl] guardFrame
+  in DEFINE (frameName, singleType) (Just lambda)
+
 frameAllObjs (Struct name _) =
   let
-    frameName     = name ++ "_frame_all"
-    typeEq        = VarE $ name ++ "_eq"
-    singleFrame i = APP typeEq [excludePredE, VarE (idxRefObj name i), preIdx]
-    allFrames     = map singleFrame [1 .. maxObjs]
-    frameLambda   = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
-  in DEFINE (frameName, excludeType) (Just frameLambda)
+    frameName      = name ++ "_frame_all"
+    frameType      = ARR [excludeType, indexType, boolTypeY]
+    typeEq         = VarE $ name ++ "_frame_single"
+    singleFrame i  = APP typeEq [excludePredE, VarE (idxRefObj name i), preIdx]
+    allFrames      = map singleFrame [1 .. maxObjs]
+    frameLambda    = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
+  in DEFINE (frameName, frameType) (Just frameLambda)
 \end{code}
 
 \begin{code}
