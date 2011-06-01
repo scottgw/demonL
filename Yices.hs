@@ -21,7 +21,7 @@ structStr n = n ++ "_ref"
 
 -- Expression conversion
 exprY :: ExpY -> Expr -> ExpY
-exprY i (Call name args) = APP (APP (VarE name) (map (exprY i) args)) [i]
+exprY i (Call name args) = APP (VarE name) (map (exprY i) args ++ [i])
 exprY i (BinOpExpr bop e1 e2) = binYices bop (exprY i e1) (exprY i e2)
 exprY i (UnOpExpr uop e) = unaryYices uop i e
 exprY i (Access e f) = exprY i (Call f [e])

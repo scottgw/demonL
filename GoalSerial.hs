@@ -10,11 +10,15 @@ import Types
 goalCommands :: SerialGoal -> [CmdY]
 goalCommands goal = concat [ goalDefs goal
                            , goalInitState goal
-                           , goalAction
+                           , map goalAction [1 .. steps]
                            , goalAssert goal
                            ]
 
-goalAction = undefined
+goalAction i = 
+  let act = APP (VarE "actions") [tag, exc, LitI i]
+      tag = APP (VarE "tag_array") [LitI i]
+      exc = VarE "Stock_frame_all"
+  in ASSERT act
 
 goalDefs = map typeDefinition . declsToArgsY . vars
   where typeDefinition = flip DEFINE Nothing
@@ -31,3 +35,5 @@ assignmentExprs (Assignment name vals) =
 steps = 1
 
 goalAssert = (:[]) . ASSERT . exprY (LitI steps) . goalExpr
+
+-- Ich danke für deine Mühen.

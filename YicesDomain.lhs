@@ -133,8 +133,9 @@ actionExpr (Procedure {prcdArgs = args, prcdReq = req, prcdEns = ens}) =
 \begin{code}
 attrType :: String -> Type -> TypY
 attrType structType resultType = 
-    ARR  [basicTypeY (StructType structType []),
-          ARR [indexType, basicTypeY resultType]]
+    ARR  [ basicTypeY (StructType structType [])
+         , indexType, 
+           basicTypeY resultType]
 \end{code}
 
 \begin{code}
@@ -201,7 +202,7 @@ allWrap str v = APP (VarE $ allWrapStr str) [v]
 
 \begin{code}
 excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
-tagArray = DEFINE ("tag_array", ARR [intTypeY, indexType, VarT "proc_tag"]) 
+tagArray = DEFINE ("tag_array", ARR [indexType, VarT "proc_tag"]) 
                   Nothing
 \end{code}
 Frame conditions
@@ -237,7 +238,7 @@ frameAllObjs (Struct name _) =
     frameName      = name ++ "_frame_all"
     frameType      = ARR [excludeType, indexType, boolTypeY]
     typeEq         = VarE $ name ++ "_frame_single"
-    singleFrame i  = APP typeEq [excludePredE, VarE (idxRefObj name i), preIdx]
+    singleFrame i  = APP typeEq [VarE (idxRefObj name i), excludePredE, preIdx]
     allFrames      = map singleFrame [1 .. maxObjs]
     frameLambda    = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
   in DEFINE (frameName, frameType) (Just frameLambda)
@@ -282,7 +283,8 @@ actionOptions procs =
       actionExprs = OR $ map actionExpr procs
       actionExpr p = AND [tagMatch p, runProc p]
       tagMatch p = VarE "tag" := VarE (tagName p)
-      runProc p = APP (VarE $ prcdName p) (argsFromArray (prcdArgs p))
+      runProc p = APP (APP (VarE $ prcdName p) (argsFromArray (prcdArgs p))) 
+                      [preIdx]
   in DEFINE ("actions", actionsType) (Just actionsLambda)
 \end{code}
 
