@@ -3,7 +3,8 @@ module Yices where
 import Math.SMT.Yices.Syntax
 
 import Types
-import AST
+import AST hiding (Expr (..))
+import TypeCheck
 
 -- Type conversion
 basicTypeY :: Type -> TypY
@@ -20,12 +21,12 @@ boolTypeY = VarT "bool"
 structStr n = n ++ "_ref"
 
 -- Expression conversion
-exprY :: ExpY -> Expr -> ExpY
-exprY i (Call name args) = APP (VarE name) (map (exprY i) args ++ [i])
-exprY i (BinOpExpr bop e1 e2) = binYices bop (exprY i e1) (exprY i e2)
-exprY i (UnOpExpr uop e) = unaryYices uop i e
-exprY i (Access e f) = exprY i (Call f [e])
-exprY _ (Var v) = VarE v
+exprY :: ExpY -> TExpr -> ExpY
+exprY i (Call name args t) = APP (VarE name) (map (exprY i) args ++ [i])
+exprY i (BinOpExpr bop e1 e2 t) = binYices bop (exprY i e1) (exprY i e2)
+exprY i (UnOpExpr uop e t) = unaryYices uop i e
+exprY i (Access e f t) = exprY i (Call f [e] t)
+exprY _ (Var v t) = VarE v
 exprY _ (LitInt int) = LitI (fromIntegral int)
 exprY _ (LitBool b) = LitB b
 exprY _ (LitDouble d) = LitR (toRational d)

@@ -17,14 +17,14 @@ main = do
     then putStrLn "Usage: demonL <domain> <serialization>"
     else 
       do let (domainFileName:serialFileName:_) = args
-         domCmds  <- generateDomain domainFileName
-         goalCmds <- generateGoal serialFileName
+         (dom, domCmds)  <- generateDomain domainFileName
+         goalCmds <- generateGoal dom serialFileName
          runCommands domCmds goalCmds
 
-generateGoal fileName = do
+generateGoal dom fileName = do
   serialE <- parseFromFile serialGoal fileName
   case serialE of
-    Right s -> writeYices fileName (goalCommands s)
+    Right s -> writeYices fileName (goalCommands dom s)
     Left e -> error $ show e
 
 

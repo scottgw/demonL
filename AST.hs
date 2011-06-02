@@ -1,12 +1,15 @@
 module AST where
 
 import Data.List (intercalate)
+import qualified Data.Map as M
 import Types
 
 data Decl = Decl 
     { declName :: String,
       declType :: Type
     }
+
+declsToMap = foldr ( \ d -> M.insert (declName d) (declType d)) M.empty
 
 instance Show Decl where
     show (Decl name typ) = name ++ ": " ++ show typ
@@ -16,6 +19,8 @@ data Clause a = Clause
     { clauseName :: String
     , clauseExpr :: a
     } deriving Show
+
+type ProcedureU = Procedure Expr
 
 data Procedure exp = 
     Procedure
@@ -27,11 +32,13 @@ data Procedure exp =
       prcdEns    :: [Clause exp]
     } deriving Show
 
- 
-data Domain = 
+
+type DomainU = Domain Expr
+
+data Domain e = 
   Domain  
   {
-    domProcs :: [Procedure Expr],
+    domProcs :: [Procedure e],
     domStructs :: [Struct]
   } deriving Show
 

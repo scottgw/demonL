@@ -4,16 +4,25 @@
 \begin{document}
 
 \begin{code}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TupleSections #-}
 module YicesDomain (generateDomain) where
+
+import Control.Applicative
+
+import Control.Monad.Trans.Error
+
+import Data.List
+import qualified Data.Set as S
+import qualified Data.Map as M
 
 import Math.SMT.Yices.Syntax
 
 import Text.Parsec.ByteString
 
-import AST
+import AST hiding (Expr (..))
 import Parser
 import Types
+import TypeCheck
 import Yices
 \end{code}
 
@@ -76,7 +85,7 @@ The actions that are generated from procedures have to main components:
   time index.
 \end{itemize}
 \begin{code}
-actions procs = map procConvY procs ++ [actionOptions procs]
+actions types procs = map (procConvY types) procs ++ [actionOptions procs]
 \end{code}
 
 Finally, the generation of the Yices statements above can be
@@ -85,20 +94,16 @@ This is the top level conversion from
 a domain to a series of Yices commands.
 
 \begin{code}
-procDom :: Domain -> [CmdY]
-procDom d@(Domain procs types) = 
-  concat  [ tagsAndTypes d 
-          , frameCmds
-          , attrFunctions types
-          , equalityFunctions types
-          , frames types
-          , actions procs
-          ]
-\end{code}
-
-
-\begin{code}
-clauseExprs = map clauseExpr
+procDom :: DomainU -> [CmdY]
+procDom untypedDom  = 
+    let Right d@(Domain procs types) = runTypeM $ typecheckDomain untypedDom
+    in concat  [ tagsAndTypes d 
+               , frameCmds
+               , attrFunctions types
+               , equalityFunctions types
+               , frames types
+               , actions types procs
+               ]
 \end{code}
 
 
@@ -111,9 +116,44 @@ This represents that an action can be true in a particular state.
 actionType = ARR [indexType, basicTypeY BoolType]
 \end{code}
 \begin{code}
-actionBody :: [Expr] -> [Expr] -> ExpY
-actionBody pres posts = 
-  actionBodyLambda (AND $ map (exprY preIdx) pres ++ map (exprY postIdx) posts)
+actionBody :: ExpY -> [TExpr] -> [TExpr] -> ExpY
+actionBody frame pres posts =
+    let prePosts      = map (exprY preIdx) pres ++ map (exprY postIdx) posts
+    in actionBodyLambda (AND $ prePosts ++ [frame])
+\end{code}
+
+The action frame takes the procedure and generates
+an exclusionary predicate.
+This exclusionary predicate is run over all references and
+will determine if they need to be held immutable for
+the execution of this procedure.
+
+\begin{code}
+actionFrame :: [Struct] -> ProcedureT -> ExpY
+actionFrame types proc = 
+    let 
+        args = prcdArgs proc
+        getName var = 
+            case find (\ (Decl n _) -> n == var) args of
+              Just (Decl _ (StructType sName _))  -> Just sName
+              _                                   -> Nothing
+        getStruct var = 
+            case getName var of 
+              Just sName  -> find ((== sName) . structName) types
+              _           -> Nothing
+
+        insertStruct (Struct n attrs) = M.insert n (declsToMap attrs)
+        typesToMap = foldr insertStruct M.empty types
+
+        removeModified sName attr = M.adjust (M.delete attr) sName
+        updateModified modMap e attr = 
+            case texprType e of
+              StructType sName _ -> removeModified sName attr modMap
+              _  -> modMap
+        go (LitInt _) modMap = modMap
+        go (Access e attr _) modMap = updateModified modMap e attr
+        unmodifiedMap = foldr go typesToMap (clauseExprs $ prcdEns proc)
+    in error $ show unmodifiedMap
 \end{code}
 
 \begin{code}
@@ -121,13 +161,18 @@ actionBodyLambda = LAMBDA [(idxStr, indexType)]
 \end{code}
 
 \begin{code}
-actionExpr :: Procedure Expr -> ExpY
-actionExpr (Procedure {prcdArgs = args, prcdReq = req, prcdEns = ens}) =
+clauseExprs = map clauseExpr
+\end{code}
+
+\begin{code}
+actionExpr :: [Struct] -> ProcedureT -> ExpY
+actionExpr types proc =
   let
-    pres  = clauseExprs req
-    posts = clauseExprs ens
-    body  = actionBody pres posts
-  in LAMBDA (declsToArgsY args) body
+    pres   = clauseExprs (prcdReq proc)
+    posts  = clauseExprs (prcdEns proc)
+    frame  = actionFrame types proc
+    body   = actionBody frame pres posts
+  in LAMBDA (declsToArgsY (prcdArgs proc)) body
 \end{code}
 
 \begin{code}
@@ -139,7 +184,7 @@ attrType structType resultType =
 \end{code}
 
 \begin{code}
-procYicesType :: Procedure Expr -> TypY
+procYicesType :: ProcedureT -> TypY
 procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
   let ytypes = map (basicTypeY . declType) args
   in  
@@ -149,9 +194,9 @@ procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) =
 \end{code}
 
 \begin{code}
-procConvY :: Procedure Expr -> CmdY
-procConvY proc =
-  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr proc)
+procConvY :: [Struct] -> ProcedureT -> CmdY
+procConvY types proc =
+  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr types proc)
 \end{code}
 
 \begin{code}
@@ -258,15 +303,18 @@ allFrameTypes types =
 \end{code}
 
 \begin{code}
-obj = Var "obj"
+obj = Var "obj" NoType
 objDecl t = ("obj", t)
 \end{code}
 
 \begin{code}
 attrEq (Decl dn _) = exprY postIdx e
   where 
-    acc = Access obj
-    e = BinOpExpr (RelOp Eq NoType) (acc dn) (UnOpExpr Old $ acc dn)
+    acc e = Access obj e NoType
+    e = BinOpExpr (RelOp Eq NoType) 
+                  (acc dn) 
+                  (UnOpExpr Old (acc dn) NoType) 
+                  NoType
 \end{code}
 
 \begin{code}
@@ -323,9 +371,9 @@ argsFromArray =
 \begin{code}
 generateDomain fileName = do
   domE <- parseFromFile domain fileName
-  either 
-    (error . parseErrorStr fileName  . show)
-    (writeYices fileName . procDom)
-    domE
+  let writeAndProcess dom = (dom,) <$>  writeYices fileName (procDom dom)
+  either (error . parseErrorStr fileName  . show)
+         writeAndProcess
+         domE
 \end{code}
 \end{document}
