@@ -7,7 +7,7 @@ doc: YicesDomain.tex
 	pdflatex $<
 
 clean:
-	@rm *.o *.hi demonL
+	@rm demonL
 
 YicesDomain.tex: YicesDomain.lhs
 	lhs2TeX -o YicesDomain.tex YicesDomain.lhs

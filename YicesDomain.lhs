@@ -153,7 +153,24 @@ actionFrame types proc =
         go (LitInt _) modMap = modMap
         go (Access e attr _) modMap = updateModified modMap e attr
         unmodifiedMap = foldr go typesToMap (clauseExprs $ prcdEns proc)
-    in error $ show unmodifiedMap
+
+        obj = VarE "obj"
+
+        unmodEqs = AND . map unmodEq
+
+        unmodEq attr = 
+            APP (VarE attr) [obj, preIdx] := APP (VarE attr) [obj, postIdx]
+
+        unmodType typ unmodAttrs partFrame = 
+            IF (APP (VarE $ allWrapStr typ ++ "?") [obj])
+               (unmodEqs (M.keys unmodAttrs))
+               partFrame
+
+        typeFrames = M.foldrWithKey unmodType (LitB True) unmodifiedMap
+                       
+
+        lambda = LAMBDA [("obj", allRefType), idxDecl] typeFrames
+    in APP (VarE "all-frames") [lambda, preIdx]
 \end{code}
 
 \begin{code}
