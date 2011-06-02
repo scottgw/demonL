@@ -28,10 +28,13 @@ generateGoal dom fileName = do
     Left e -> error $ show e
 
 
+putSat (Sat exprs) = putStrLn "Sat" >> putStrLn (unlines $ map show exprs)
+putSat (UnSat _) = putStrLn "Unsat"
+
 runCommands dCmds gCmds = do
   yPipe <- createYicesPipe "/home/scott/local/bin/yices" []
   putStrLn "Running domain"
   runCmdsY' yPipe dCmds
   putStrLn "Running goal"
   runCmdsY' yPipe gCmds
-  checkY yPipe >>= print
+  checkY yPipe >>= putSat

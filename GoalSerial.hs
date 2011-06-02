@@ -12,7 +12,7 @@ import Types
 goalCommands :: DomainU -> SerialGoal -> [CmdY]
 goalCommands dom goal = concat [ goalDefs goal
                                , goalInitState dom goal
-                               , map goalAction [1 .. steps]
+                               , map goalAction [0 .. steps - 1]
                                , goalAssert (vars goal) dom goal
                                ]
 

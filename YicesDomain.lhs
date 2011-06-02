@@ -156,20 +156,25 @@ actionFrame types proc =
 
         obj = VarE "obj"
 
-        unmodEqs = AND . map unmodEq
+        unmodEqs typ = AND . map (unmodEq typ)
 
-        unmodEq attr = 
-            APP (VarE attr) [obj, preIdx] := APP (VarE attr) [obj, postIdx]
+        unmodEq typ attr = 
+            APP (VarE attr) [allUnwrap typ obj, preIdx] := 
+                APP (VarE attr) [allUnwrap typ obj, postIdx]
 
         unmodType typ unmodAttrs partFrame = 
             IF (APP (VarE $ allWrapStr typ ++ "?") [obj])
-               (unmodEqs (M.keys unmodAttrs))
+               (unmodEqs typ (M.keys unmodAttrs))
                partFrame
 
         typeFrames = M.foldrWithKey unmodType (LitB True) unmodifiedMap
-                       
 
-        lambda = LAMBDA [("obj", allRefType), idxDecl] typeFrames
+        orArgs = OR objArgs
+        objArgs = map objIsArg args
+        objIsArg (Decl n (StructType t _)) = obj := allWrap t (VarE n)
+        objIsArg _ = LitB True
+
+        lambda = LAMBDA [("obj", allRefType), idxDecl] (AND [orArgs, typeFrames])
     in APP (VarE "all-frames") [lambda, preIdx]
 \end{code}
 
@@ -258,12 +263,13 @@ allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
   where mkTyCon typ = let n = structName typ
                       in (allWrapStr n, [(allUnwrapStr n, VarT (structStr n))])
 allUnwrapStr str = structStr str ++ "_unwrap"
+allUnwrap str v = APP (VarE $ allUnwrapStr str) [v]
 allWrapStr str = structStr str ++ "_wrap"
 allWrap str v = APP (VarE $ allWrapStr str) [v]
 \end{code}
 
 \begin{code}
-excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, boolTypeY])
+excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, indexType, boolTypeY])
 tagArray = DEFINE ("tag_array", ARR [indexType, VarT "proc_tag"]) 
                   Nothing
 \end{code}
@@ -291,7 +297,7 @@ frameSingle (Struct name _) =
     obj         = VarE "obj"
     singleType  = ARR [objType, excludeType, indexType, boolTypeY]
     eq          = APP (VarE $ name ++ "_eq") [obj, preIdx]
-    guardFrame  = APP (VarE excludePredStr) [allWrap name obj] :=> eq
+    guardFrame  = (NOT $ APP (VarE excludePredStr) [allWrap name obj, preIdx]) :=> eq
     lambda      = LAMBDA [("obj", objType) , excludeDecl, idxDecl] guardFrame
   in DEFINE (frameName, singleType) (Just lambda)
 \end{code}
