@@ -30,7 +30,6 @@ goalInitState dom goal =
 
 unsafeCheckDom decls dom = unsafeCheck decls (domStructs dom)
 
-
 assignmentExprs :: DomainU -> [Decl] -> Assignment -> [CmdY]
 assignmentExprs dom decls (Assignment name vals) = 
   let
