@@ -10,9 +10,35 @@ import qualified Data.Map as M
 
 import Math.SMT.Yices.Syntax
 
+import AST
+import Goal
+
 generateScript goal dom goalExprs = 
-    ( foldr inspectTag M.empty goalExprs
-    , foldr inspectArg M.empty goalExprs)
+    let actionMap = foldr inspectTag M.empty goalExprs
+        argumentMap = foldr inspectArg M.empty goalExprs
+        equivs = objEquivalence goal goalExprs
+    in reconstrFromMaps actionMap argumentMap equivs
+
+reconstrFromMaps actMap argMap equivs = 
+    let f idx proc = proc ++ " (" ++ reconstrArgs idx equivs argMap ++ ")"
+        scriptMap = M.mapWithKey f actMap
+    in unlines $ map snd $ M.toAscList scriptMap
+
+objEquivalence goal goalExprs =
+    let f ((VarE v1) := (VarE v2)) m 
+            | isGoalVar v1 goal = M.insert v2 v1 m
+            | isGoalVar v2 goal = M.insert v1 v2 m
+            | otherwise = m
+        f _ m = m
+    in foldr f M.empty goalExprs
+
+isGoalVar v goal = v `elem` (map declName (vars goal))
+
+reconstrArgs :: Integer -> M.Map String String -> M.Map Integer (M.Map Integer ExpY) -> String
+reconstrArgs idx equivs = 
+    let exprEquiv (VarE s) = maybe s id (M.lookup s equivs)
+        exprEquiv e = show e
+    in intercalate "," . map (exprEquiv . snd) . M.toAscList . (M.! idx)
 
 inspectArg (e1 := e2) argsMap = 
     let 

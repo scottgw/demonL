@@ -24,8 +24,7 @@ main = do
          (goal, goalCmds) <- generateGoal dom serialFileName
          Sat goalExprs    <- runCommands domCmds goalCmds
          let script = generateScript goal dom goalExprs 
-         print script
-         return () 
+         putStrLn script
 
 generateGoal dom fileName = do
   serialE <- parseFromFile serialGoal fileName
@@ -39,7 +38,7 @@ putSat (UnSat _) = putStrLn "Unsat"
 
 runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands dCmds gCmds = do
-  yPipe <- createYicesPipe "/home/scott/local/bin/yices" []
+  yPipe <- createYicesPipe "/Users/scott/local/bin/yices" []
   putStrLn "Running domain"
   runCmdsY' yPipe dCmds
   putStrLn "Running goal"
