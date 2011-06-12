@@ -17,10 +17,10 @@ generateScript goal dom goalExprs =
     let actionMap = foldr inspectTag M.empty goalExprs
         argumentMap = foldr inspectArg M.empty goalExprs
         equivs = objEquivalence goal goalExprs
-    in reconstrFromMaps actionMap argumentMap equivs
+    in reconstrFromMaps dom actionMap argumentMap equivs
 
-reconstrFromMaps actMap argMap equivs = 
-    let f idx proc = proc ++ " (" ++ reconstrArgs idx equivs argMap ++ ")"
+reconstrFromMaps dom actMap argMap equivs = 
+    let f idx proc = proc ++ " (" ++ reconstrArgs (numArgs dom proc) idx equivs argMap ++ ")"
         scriptMap = M.mapWithKey f actMap
     in unlines $ map snd $ M.toAscList scriptMap
 
@@ -32,13 +32,19 @@ objEquivalence goal goalExprs =
         f _ m = m
     in foldr f M.empty goalExprs
 
+numArgs dom name = 
+    let mbProc = find ((== name) . prcdName) (domProcs dom)
+    in case mbProc of
+         Just p -> length (prcdArgs p)
+         Nothing -> error $ "no proc " ++ name ++ " found"
+
 isGoalVar v goal = v `elem` (map declName (vars goal))
 
-reconstrArgs :: Integer -> M.Map String String -> M.Map Integer (M.Map Integer ExpY) -> String
-reconstrArgs idx equivs = 
+reconstrArgs :: Int -> Integer -> M.Map String String -> M.Map Integer (M.Map Integer ExpY) -> String
+reconstrArgs n idx equivs = 
     let exprEquiv (VarE s) = maybe s id (M.lookup s equivs)
         exprEquiv e = show e
-    in intercalate "," . map (exprEquiv . snd) . M.toAscList . (M.! idx)
+    in intercalate "," . take n . map (exprEquiv . snd) . M.toAscList . (M.! idx)
 
 inspectArg (e1 := e2) argsMap = 
     let 
