@@ -8,3 +8,9 @@ Stock_open (s: Stock)
     not_open: not s.is_open
   ensure
     open: s.is_open
+
+Stock_buy (s: Stock, amt: INTEGER)
+  require
+    open: s.is_open
+  ensure
+    is_bought: s.shares = (old s.shares) + amt

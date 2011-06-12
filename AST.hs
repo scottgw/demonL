@@ -37,9 +37,8 @@ type DomainU = Domain Expr
 
 data Domain e = 
   Domain  
-  {
-    domProcs :: [Procedure e],
-    domStructs :: [Struct]
+  { domStructs :: [Struct]
+  , domProcs :: [Procedure e]
   } deriving Show
 
 

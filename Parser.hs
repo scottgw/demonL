@@ -88,7 +88,7 @@ boolLit = (reservedOp "True" >> return (LitBool True)) <|>
           (reservedOp "False" >> return (LitBool False))
 
 -- Procedure bodies
-clause = Clause <$> identifier <*> (colon *> expr)
+clause = try $ Clause <$> identifier <*> (colon *> expr)
 requires = reserved "require" >> many clause
 ensures = reserved "ensure" >> many clause
 
@@ -108,11 +108,12 @@ emptyDomain = Domain [] []
 addStruct (Domain procs structs) s = Domain procs (s:structs)
 addProc (Domain procs structs) p = Domain (p:procs) structs
 
-domain = foldl (\d -> either (addStruct d) (addProc d)) emptyDomain <$> eithers
-  where 
-    strct = Left <$> struct
-    prcs = Right <$> procedureP 
-    eithers = many (strct <|> prcs)
+domain = Domain <$> many struct <*> many procedureP
+  -- foldl (\d -> either (addStruct d) (addProc d)) emptyDomain <$> eithers
+  -- where 
+  --   strct = Left <$> struct
+  --   prcs = Right <$> procedureP 
+  --   eithers = many (try strct <|> prcs)
 
 assign = Assignment <$> identifier <*> braces nameMap 
   where

@@ -1,6 +1,6 @@
 WARNINGS=-Wall -fno-warn-missing-signatures
 
-demonL:
+demonL: Main.hs TypeCheck.hs YicesDomain.lhs Parser.hs Script.hs
 	ghc --make -O2 ${WARNINGS} Main.hs -o demonL
 
 doc: YicesDomain.tex

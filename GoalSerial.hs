@@ -40,7 +40,7 @@ assignmentExprs dom decls (Assignment name vals) =
     accessYices = ASSERT . exprY (LitI 0) . uncurry typedAccess
   in map accessYices vals
 
-steps = 1
+steps = 2
 
 goalAssert decls dom = 
     (:[]) . ASSERT . exprY (LitI steps) . unsafeCheckDom decls dom . goalExpr

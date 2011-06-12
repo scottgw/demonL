@@ -35,7 +35,7 @@ The reference type declarations also require the generation of the
 ``top'' type which can be any of the reference types.
 For simplicity, we also generate the argument array definitions as well.
 \begin{code}
-tagsAndTypes (Domain procs types) = procTagsAndArray ++ refDefines
+tagsAndTypes (Domain types procs) = procTagsAndArray ++ refDefines
     where
       procTagsAndArray  =  [procTags procs, tagArray]
       refDefines        =  map structConvY types ++ 
@@ -96,7 +96,7 @@ a domain to a series of Yices commands.
 \begin{code}
 procDom :: DomainU -> [CmdY]
 procDom untypedDom  = 
-    let Right d@(Domain procs types) = runTypeM $ typecheckDomain untypedDom
+    let Right d@(Domain types procs) = runTypeM $ typecheckDomain untypedDom
     in concat  [ tagsAndTypes d 
                , frameCmds
                , attrFunctions types
@@ -134,7 +134,7 @@ actionFrame types proc =
     let 
         args = prcdArgs proc
         getName var = 
-            case find (\ (Decl n _) -> n == var) args of
+            case find ((== var) . declName) args of
               Just (Decl _ (StructType sName _))  -> Just sName
               _                                   -> Nothing
         getStruct var = 
@@ -150,8 +150,14 @@ actionFrame types proc =
             case texprType e of
               StructType sName _ -> removeModified sName attr modMap
               _  -> modMap
+
         go (LitInt _) modMap = modMap
+        go (Var _ _) modMap = modMap
         go (Access e attr _) modMap = updateModified modMap e attr
+        go (UnOpExpr _ e _) modMap = go e modMap
+        go (BinOpExpr _ e1 e2 _) modMap = go e2 (go e1 modMap)
+        go e _ = error $ show e
+
         unmodifiedMap = foldr go typesToMap (clauseExprs $ prcdEns proc)
 
         obj = VarE "obj"
@@ -375,7 +381,8 @@ actionOptions procs =
 \begin{code}
 argArrayDefines types = 
   let argDef s = DEFINE (argArrayFromName s, argArrayType s) Nothing
-  in map (argDef . structName) types
+      intArgs = DEFINE ("INTEGER_arg", ARR [intTypeY, intTypeY, intTypeY]) Nothing 
+  in [intArgs] ++  map (argDef . structName) types
 \end{code}
 
 \begin{code}

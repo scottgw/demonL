@@ -48,8 +48,8 @@ texprType (LitDouble _) = DoubleType
 
 
 typecheckDomain :: DomainU -> TypeM DomainT
-typecheckDomain (Domain procs types) = 
-    Domain <$> mapM (typecheckProc types) procs <*> pure types
+typecheckDomain (Domain types procs) = 
+    Domain <$> pure types <*> mapM (typecheckProc types) procs
 
 typecheckProc :: [Struct] -> ProcedureU -> TypeM ProcedureT
 typecheckProc types (Procedure name args res req ens) =
@@ -130,8 +130,7 @@ unOpTypes Not e
     | texprType e == BoolType  = return BoolType
 unOpTypes Neg e
     | isNumType (texprType e)  = return $ texprType e
-unOpTypes op e = throwError $ show e ++ " is an unsuitable arguments for " ++ 
-                              show op
+unOpTypes Old e = return $ texprType e
 
 binOpTypes :: BinOp -> TExpr -> TExpr -> TypeM Type
 binOpTypes (RelOp r _) e1 e2 = if texprType e1 == texprType e2 
