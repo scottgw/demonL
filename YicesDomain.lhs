@@ -20,6 +20,7 @@ import Math.SMT.Yices.Syntax
 import Text.Parsec.ByteString
 
 import AST hiding (Expr (..))
+import Frame
 import Parser
 import Types
 import TypeCheck
@@ -122,74 +123,8 @@ actionBody frame pres posts =
     in actionBodyLambda (AND $ prePosts ++ [frame])
 \end{code}
 
-The action frame takes the procedure and generates
-an exclusionary predicate.
-This exclusionary predicate is run over all references and
-will determine if they need to be held immutable for
-the execution of this procedure.
-
-\begin{code}
-actionFrame :: [Struct] -> ProcedureT -> ExpY
-actionFrame types proc = 
-    let 
-        args = prcdArgs proc
-        getName var = 
-            case find ((== var) . declName) args of
-              Just (Decl _ (StructType sName _))  -> Just sName
-              _                                   -> Nothing
-        getStruct var = 
-            case getName var of 
-              Just sName  -> find ((== sName) . structName) types
-              _           -> Nothing
-
-        insertStruct (Struct n attrs) = M.insert n (declsToMap attrs)
-        typesToMap = foldr insertStruct M.empty types
-
-        removeModified sName attr = M.adjust (M.delete attr) sName
-        updateModified modMap e attr = 
-            case texprType e of
-              StructType sName _ -> removeModified sName attr modMap
-              _  -> modMap
-
-        go (LitInt _) modMap = modMap
-        go (Var _ _) modMap = modMap
-        go (Access e attr _) modMap = updateModified modMap e attr
-        go (UnOpExpr _ e _) modMap = go e modMap
-        go (BinOpExpr _ e1 e2 _) modMap = go e2 (go e1 modMap)
-        go e _ = error $ show e
-
-        unmodifiedMap = foldr go typesToMap (clauseExprs $ prcdEns proc)
-
-        obj = VarE "obj"
-
-        unmodEqs typ = AND . map (unmodEq typ)
-
-        unmodEq typ attr = 
-            APP (VarE attr) [allUnwrap typ obj, preIdx] := 
-                APP (VarE attr) [allUnwrap typ obj, postIdx]
-
-        unmodType typ unmodAttrs partFrame = 
-            IF (APP (VarE $ allWrapStr typ ++ "?") [obj])
-               (unmodEqs typ (M.keys unmodAttrs))
-               partFrame
-
-        typeFrames = M.foldrWithKey unmodType (LitB True) unmodifiedMap
-
-        orArgs = OR objArgs
-        objArgs = map objIsArg args
-        objIsArg (Decl n (StructType t _)) = obj := allWrap t (VarE n)
-        objIsArg _ = LitB True
-
-        lambda = LAMBDA [("obj", allRefType), idxDecl] (AND [orArgs, typeFrames])
-    in APP (VarE "all-frames") [lambda, preIdx]
-\end{code}
-
 \begin{code}
 actionBodyLambda = LAMBDA [(idxStr, indexType)]
-\end{code}
-
-\begin{code}
-clauseExprs = map clauseExpr
 \end{code}
 
 \begin{code}
@@ -263,18 +198,6 @@ procTags procs = DEFTYP tagTypeStr (Just $ SCALAR tags)
 \end{code}
 
 \begin{code}
-allRefType = VarT allRefStr
-allRefStr = "ALL_ref"
-allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
-  where mkTyCon typ = let n = structName typ
-                      in (allWrapStr n, [(allUnwrapStr n, VarT (structStr n))])
-allUnwrapStr str = structStr str ++ "_unwrap"
-allUnwrap str v = APP (VarE $ allUnwrapStr str) [v]
-allWrapStr str = structStr str ++ "_wrap"
-allWrap str v = APP (VarE $ allWrapStr str) [v]
-\end{code}
-
-\begin{code}
 excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, indexType, boolTypeY])
 tagArray = DEFINE ("tag_array", ARR [indexType, VarT "proc_tag"]) 
                   Nothing
@@ -300,10 +223,9 @@ frameSingle (Struct name _) =
   let
     frameName   = name ++ "_frame_single"
     objType     = VarT $ structStr name
-    obj         = VarE "obj"
     singleType  = ARR [objType, excludeType, indexType, boolTypeY]
-    eq          = APP (VarE $ name ++ "_eq") [obj, preIdx]
-    guardFrame  = (NOT $ APP (VarE excludePredStr) [allWrap name obj, preIdx]) :=> eq
+    eq          = APP (VarE $ name ++ "_eq") [objY, preIdx]
+    guardFrame  = (NOT $ APP (VarE excludePredStr) [allWrap name objY, preIdx]) :=> eq
     lambda      = LAMBDA [("obj", objType) , excludeDecl, idxDecl] guardFrame
   in DEFINE (frameName, singleType) (Just lambda)
 \end{code}

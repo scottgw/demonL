@@ -65,6 +65,19 @@ declsToArgsY :: [Decl] -> [(String, TypY)]
 declsToArgsY = concatMap declY
   where declY (Decl name typ) = [(name, basicTypeY typ)]
 
+clauseExprs = map clauseExpr
+
+allRefType = VarT allRefStr
+allRefStr = "ALL_ref"
+allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
+  where mkTyCon typ = let n = structName typ
+                      in (allWrapStr n, [(allUnwrapStr n, VarT (structStr n))])
+allUnwrapStr str = structStr str ++ "_unwrap"
+allUnwrap str v = APP (VarE $ allUnwrapStr str) [v]
+allWrapStr str = structStr str ++ "_wrap"
+allWrap str v = APP (VarE $ allWrapStr str) [v]
+
+objY = VarE "obj"
 
 outputFileName fn = fn ++ ".lisp"
 
@@ -73,3 +86,5 @@ showCmds = unlines . map show
 
 writeYices name cmds = 
   writeFile (outputFileName name) (showCmds cmds) >> return cmds
+
+

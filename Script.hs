@@ -20,7 +20,9 @@ generateScript goal dom goalExprs =
     in reconstrFromMaps dom actionMap argumentMap equivs
 
 reconstrFromMaps dom actMap argMap equivs = 
-    let f idx proc = proc ++ " (" ++ reconstrArgs (numArgs dom proc) idx equivs argMap ++ ")"
+    let f idx proc = proc ++ " (" ++ 
+                     reconstrArgs (numArgs dom proc) idx equivs argMap ++ 
+                     ")"
         scriptMap = M.mapWithKey f actMap
     in unlines $ map snd $ M.toAscList scriptMap
 
@@ -40,7 +42,8 @@ numArgs dom name =
 
 isGoalVar v goal = v `elem` (map declName (vars goal))
 
-reconstrArgs :: Int -> Integer -> M.Map String String -> M.Map Integer (M.Map Integer ExpY) -> String
+reconstrArgs :: Int -> Integer -> M.Map String String 
+             -> M.Map Integer (M.Map Integer ExpY) -> String
 reconstrArgs n idx equivs = 
     let exprEquiv (VarE s) = maybe s id (M.lookup s equivs)
         exprEquiv e = show e
