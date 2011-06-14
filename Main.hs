@@ -20,12 +20,11 @@ main = do
     then putStrLn "Usage: demonL <domain> <serialization>"
     else 
       do let (domainFileName:serialFileName:_) = args
-         (dom, domCmds)   <- generateDomain domainFileName
-         (goal, goalCmds) <- generateGoal dom serialFileName
-         Sat goalExprs    <- runCommands domCmds goalCmds
-         let script = generateScript goal dom goalExprs 
-         putStrLn script
-
+         (dom, domCmds)    <- generateDomain domainFileName
+         (goal, goalCmds)  <- generateGoal dom serialFileName
+         resY              <- runCommands domCmds goalCmds
+         interpResult resY dom goal
+  
 generateGoal dom fileName = do
   serialE <- parseFromFile serialGoal fileName
   case serialE of
@@ -33,10 +32,14 @@ generateGoal dom fileName = do
     Left e -> error $ show e
 
 
-putSat (Sat exprs) = putStrLn "Sat" >> putStrLn (unlines $ map show exprs)
-putSat (UnSat _) = putStrLn "Unsat"
-putSat (Unknown _)  = putStrLn "Unknown"
-putSat (InCon ss) = mapM_ putStrLn ss
+interpResult (Sat exprs) dom goal = do 
+  putStrLn "Sat" 
+  putStrLn (unlines $ map show exprs)
+  let script = generateScript goal dom exprs 
+  putStrLn script
+interpResult (UnSat _) _ _ = putStrLn "Unsat"
+interpResult (Unknown _) _ _  = putStrLn "Unknown"
+interpResult (InCon ss) _ _ = mapM_ putStrLn ss
 
 runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands dCmds gCmds = do
@@ -45,6 +48,4 @@ runCommands dCmds gCmds = do
   runCmdsY' yPipe dCmds
   putStrLn "Running goal"
   runCmdsY' yPipe gCmds
-  s <- checkY yPipe
-  putSat s
-  return s
+  checkY yPipe

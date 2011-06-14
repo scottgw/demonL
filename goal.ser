@@ -4,4 +4,4 @@ s {shares  = 1,
    is_open = False
   }
 
-2 -> s.shares <= old s.shares and s.is_open = True 
+3 -> s.shares = 5 and not s.is_open 

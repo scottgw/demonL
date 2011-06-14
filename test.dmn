@@ -9,6 +9,12 @@ Stock_open (s: Stock)
   ensure
     open: s.is_open
 
+Stock_close (s: Stock)
+  require
+    open: s.is_open
+  ensure
+    not_open: not s.is_open
+
 Stock_buy (s: Stock, amt: INTEGER)
   require
     pos: amt >= 0
