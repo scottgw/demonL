@@ -35,6 +35,8 @@ generateGoal dom fileName = do
 
 putSat (Sat exprs) = putStrLn "Sat" >> putStrLn (unlines $ map show exprs)
 putSat (UnSat _) = putStrLn "Unsat"
+putSat (Unknown _)  = putStrLn "Unknown"
+putSat (InCon ss) = mapM_ putStrLn ss
 
 runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands dCmds gCmds = do

@@ -104,17 +104,9 @@ decl = Decl <$> identifier <*> (colon *> typeP)
 argumentList = parens (decl `sepBy` comma)
 
 -- Domain description
-emptyDomain = Domain [] []
-addStruct (Domain procs structs) s = Domain procs (s:structs)
-addProc (Domain procs structs) p = Domain (p:procs) structs
-
 domain = Domain <$> many struct <*> many procedureP
-  -- foldl (\d -> either (addStruct d) (addProc d)) emptyDomain <$> eithers
-  -- where 
-  --   strct = Left <$> struct
-  --   prcs = Right <$> procedureP 
-  --   eithers = many (try strct <|> prcs)
 
+-- Goal description
 assign = Assignment <$> identifier <*> braces nameMap 
   where
     nameMap  = nameExpr `sepBy` comma

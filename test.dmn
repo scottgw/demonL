@@ -11,6 +11,7 @@ Stock_open (s: Stock)
 
 Stock_buy (s: Stock, amt: INTEGER)
   require
+    pos: amt >= 0
     open: s.is_open
   ensure
     is_bought: s.shares = (old s.shares) + amt

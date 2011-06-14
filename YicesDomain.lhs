@@ -119,7 +119,7 @@ actionType = ARR [indexType, basicTypeY BoolType]
 \begin{code}
 actionBody :: ExpY -> [TExpr] -> [TExpr] -> ExpY
 actionBody frame pres posts =
-    let prePosts      = map (exprY preIdx) pres ++ map (exprY postIdx) posts
+    let prePosts      = map (exprY preIdx preIdx) pres ++ map (exprY preIdx postIdx) posts
     in actionBodyLambda (AND $ prePosts ++ [frame])
 \end{code}
 
@@ -259,7 +259,7 @@ objDecl t = ("obj", t)
 \end{code}
 
 \begin{code}
-attrEq (Decl dn _) = exprY postIdx e
+attrEq (Decl dn _) = exprY preIdx postIdx e
   where 
     acc e = Access obj e NoType
     e = BinOpExpr (RelOp Eq NoType) 

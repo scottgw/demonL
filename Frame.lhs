@@ -68,5 +68,5 @@ unmodType typ unmodAttrs partFrame =
 
 objArgs = map objIsArg
 objIsArg (Decl n (StructType t _)) = objY := allWrap t (VarE n)
-objIsArg _ = LitB True
+objIsArg _ = LitB False
 \end{code}

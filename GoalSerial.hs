@@ -24,26 +24,29 @@ goalAction i =
 
 goalDefs = map typeDefinition . declsToArgsY . vars
   where typeDefinition = flip DEFINE Nothing
-        
+
 goalInitState dom goal = 
-    concatMap (assignmentExprs dom (vars goal)) (values goal)
+    concatMap (assignmentExprs (goalSteps goal) dom (vars goal)) (values goal)
 
 unsafeCheckDom decls dom = unsafeCheck decls (domStructs dom)
 
-assignmentExprs :: DomainU -> [Decl] -> Assignment -> [CmdY]
-assignmentExprs dom decls (Assignment name vals) = 
+exprYbefore = exprY (LitI 0) (LitI 0)
+exprYgoal goal = exprY (LitI 0) (LitI $ goalSteps goal)
+
+assignmentExprs :: Integer -> DomainU -> [Decl] -> Assignment -> [CmdY]
+assignmentExprs steps dom decls (Assignment name vals) = 
   let
     accessEq attr e = A.BinOpExpr (A.RelOp A.Eq NoType) 
                                   (A.Access (A.Var name) attr) 
                                   e
     typedAccess attr e = unsafeCheckDom decls dom (accessEq attr e)
-    accessYices = ASSERT . exprY (LitI 0) . uncurry typedAccess
+    accessYices = ASSERT . exprYbefore . uncurry typedAccess
   in map accessYices vals
 
 goalAssert decls dom goal = 
     let steps = goalSteps goal
         genAssert = 
-            (:[]) . ASSERT . exprY (LitI steps) . unsafeCheckDom decls dom . goalExpr
+            (:[]) . ASSERT . exprYgoal goal . unsafeCheckDom decls dom . goalExpr
     in genAssert goal
 
 -- Ich danke für deine Mühen.

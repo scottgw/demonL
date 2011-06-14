@@ -21,19 +21,21 @@ boolTypeY = VarT "bool"
 structStr n = n ++ "_ref"
 
 -- Expression conversion
-exprY :: ExpY -> TExpr -> ExpY
-exprY i (Call name args t) = APP (VarE name) (map (exprY i) args ++ [i])
-exprY i (BinOpExpr bop e1 e2 t) = binYices bop (exprY i e1) (exprY i e2)
-exprY i (UnOpExpr uop e t) = unaryYices uop i e
-exprY i (Access e f t) = exprY i (Call f [e] t)
-exprY _ (Var v t) = VarE v
-exprY _ (LitInt int) = LitI (fromIntegral int)
-exprY _ (LitBool b) = LitB b
-exprY _ (LitDouble d) = LitR (toRational d)
+exprY :: ExpY -> ExpY -> TExpr -> ExpY
+exprY pre post (Call name args t) = 
+    APP (VarE name) (map (exprY pre post) args ++ [post])
+exprY pre post (BinOpExpr bop e1 e2 t) = 
+    binYices bop (exprY pre post e1) (exprY pre post e2)
+exprY pre post (UnOpExpr uop e t) = unaryYices uop pre post e
+exprY pre post (Access e f t) = exprY pre post (Call f [e] t)
+exprY _ _ (Var v t) = VarE v
+exprY _ _ (LitInt int) = LitI (fromIntegral int)
+exprY _ _ (LitBool b) = LitB b
+exprY _ _ (LitDouble d) = LitR (toRational d)
 
-unaryYices Not i e = NOT (exprY i e)
-unaryYices Neg i e = LitI 0 :-: exprY i e
-unaryYices Old _ e = exprY preIdx e 
+unaryYices Not pre post e = NOT (exprY pre post e)
+unaryYices Neg pre post e = LitI 0 :-: exprY pre post e
+unaryYices Old pre post e = exprY pre pre e 
 
 binYices Add = (:+:)
 binYices Sub = (:-:)
