@@ -12,7 +12,7 @@ import Types
 goalCommands :: DomainU -> SerialGoal -> [CmdY]
 goalCommands dom goal = concat [ goalDefs goal
                                , goalInitState dom goal
-                               , map goalAction [0 .. steps - 1]
+                               , map goalAction [0 .. goalSteps goal - 1]
                                , goalAssert (vars goal) dom goal
                                ]
 
@@ -40,9 +40,10 @@ assignmentExprs dom decls (Assignment name vals) =
     accessYices = ASSERT . exprY (LitI 0) . uncurry typedAccess
   in map accessYices vals
 
-steps = 2
-
-goalAssert decls dom = 
-    (:[]) . ASSERT . exprY (LitI steps) . unsafeCheckDom decls dom . goalExpr
+goalAssert decls dom goal = 
+    let steps = goalSteps goal
+        genAssert = 
+            (:[]) . ASSERT . exprY (LitI steps) . unsafeCheckDom decls dom . goalExpr
+    in genAssert goal
 
 -- Ich danke für deine Mühen.

@@ -122,4 +122,5 @@ assign = Assignment <$> identifier <*> braces nameMap
 
 serialGoal = SerialGoal <$> many (try decl)
                         <*> many assign 
+                        <*> integer
                         <*> (reservedOp "->" *> expr)

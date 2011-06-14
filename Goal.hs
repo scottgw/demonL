@@ -14,5 +14,6 @@ data SerialGoal =
   {
     vars :: [Decl],
     values :: [Assignment],
+    goalSteps :: Integer,
     goalExpr :: Expr
   } deriving Show

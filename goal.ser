@@ -4,4 +4,4 @@ s {shares  = 1,
    is_open = False
   }
 
--> s.is_open = True and s.shares = 5
+2 -> s.is_open = True and s.shares = 5
