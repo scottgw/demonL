@@ -33,8 +33,8 @@ generateGoal dom fileName = do
 
 
 interpResult (Sat exprs) dom goal = do 
-  putStrLn "Sat" 
-  putStrLn (unlines $ map show exprs)
+  -- putStrLn "Sat" 
+  -- putStrLn (unlines $ map show exprs)
   let script = generateScript goal dom exprs 
   putStrLn script
 interpResult (UnSat _) _ _ = putStrLn "Unsat"
@@ -44,8 +44,8 @@ interpResult (InCon ss) _ _ = mapM_ putStrLn ss
 runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands dCmds gCmds = do
   yPipe <- createYicesPipe "/Users/scott/local/bin/yices" []
-  putStrLn "Running domain"
+  -- putStrLn "Running domain" 
   runCmdsY' yPipe dCmds
-  putStrLn "Running goal"
+  -- putStrLn "Running goal"
   runCmdsY' yPipe gCmds
   checkY yPipe
