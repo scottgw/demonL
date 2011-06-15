@@ -28,7 +28,7 @@ main = do
                   gCmds  <- generateGoal dom goal goalFileName
                   resY   <- runCommands dCmds gCmds
                   interpResult resY dom goal
-
+           e -> error $ show e
 
 generateDomain dom fileName = writeYices fileName (procDom dom)
 generateGoal dom goal fileName = writeYices fileName (goalCommands dom goal)
