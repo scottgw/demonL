@@ -54,7 +54,8 @@ unmodifiedMap types proc =
 \end{code}
 
 \begin{code}
-unmodEqs typ = AND . map (unmodEq typ)
+unmodEqs typ [] = LitB True
+unmodEqs typ unmodAttrs = AND $ map (unmodEq typ) unmodAttrs
                        
 unmodEq typ attr = 
     APP (VarE attr) [allUnwrap typ objY, preIdx] := 

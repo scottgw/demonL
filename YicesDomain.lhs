@@ -272,6 +272,7 @@ attrEq (Decl dn _) = exprY preIdx postIdx e
 \end{code}
 
 \begin{code}
+structEquals (Struct _ []) = error "structEquals: empty declarations"
 structEquals (Struct name decls) = 
   let
     typ = ARR [objType, indexType, boolTypeY]
