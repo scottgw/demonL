@@ -13,8 +13,8 @@ YicesDomain.tex: YicesDomain.lhs
 	lhs2TeX -o YicesDomain.tex YicesDomain.lhs
 
 test: demonL
-	./demonL test.dmn goal.ser
-	racket pretty.rkt test.dmn.lisp
+	./demonL stock.dmn stock.goal
+	racket pretty.rkt stock.dmn.lisp
 
 # %.hi: %.hs
 # 	ghc $<
