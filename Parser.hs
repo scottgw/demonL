@@ -96,8 +96,8 @@ procedureP =
   Procedure <$> identifier 
             <*> argumentList 
             <*> option NoType (colon >> typeP)
-            <*> requires 
-            <*> ensures
+            <*> option [] requires 
+            <*> option [] ensures
 
 -- Declaration parsers
 decl = Decl <$> identifier <*> (colon *> typeP)
