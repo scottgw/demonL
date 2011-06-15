@@ -8,35 +8,33 @@ import Text.Parsec.ByteString
 
 import System
 
-import Parser (serialGoal)
-import YicesDomain (generateDomain)
-import Script (generateScript)
-import Yices
 import GoalSerial
+import Parser (serialGoal, domain)
+import Script (generateScript)
+import YicesDomain (procDom)
+import Yices
 
 main = do
   args <- getArgs
   if length args < 2 
     then putStrLn "Usage: demonL <domain> <serialization>"
     else 
-      do let (domainFileName:serialFileName:_) = args
-         (dom, domCmds)    <- generateDomain domainFileName
-         (goal, goalCmds)  <- generateGoal dom serialFileName
-         resY              <- runCommands domCmds goalCmds
-         interpResult resY dom goal
-  
-generateGoal dom fileName = do
-  serialE <- parseFromFile serialGoal fileName
-  case serialE of
-    Right s -> (s,) `fmap` writeYices fileName (goalCommands dom s)
-    Left e -> error $ show e
+      do let (domainFileName:goalFileName:_) = args
+         eiDom  <- parseFromFile domain domainFileName
+         eiGoal <- parseFromFile serialGoal goalFileName
+         case (eiDom, eiGoal) of
+           (Right dom, Right goal) ->
+               do dCmds  <- generateDomain dom domainFileName
+                  gCmds  <- generateGoal dom goal goalFileName
+                  resY   <- runCommands dCmds gCmds
+                  interpResult resY dom goal
 
 
-interpResult (Sat exprs) dom goal = do 
-  -- putStrLn "Sat" 
-  -- putStrLn (unlines $ map show exprs)
-  let script = generateScript goal dom exprs 
-  putStrLn script
+generateDomain dom fileName = writeYices fileName (procDom dom)
+generateGoal dom goal fileName = writeYices fileName (goalCommands dom goal)
+ 
+interpResult (Sat exprs) dom goal =
+  putStrLn $  generateScript goal dom exprs
 interpResult (UnSat _) _ _ = putStrLn "Unsat"
 interpResult (Unknown _) _ _  = putStrLn "Unknown"
 interpResult (InCon ss) _ _ = mapM_ putStrLn ss
@@ -44,8 +42,6 @@ interpResult (InCon ss) _ _ = mapM_ putStrLn ss
 runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands dCmds gCmds = do
   yPipe <- createYicesPipe "/Users/scott/local/bin/yices" []
-  -- putStrLn "Running domain" 
   runCmdsY' yPipe dCmds
-  -- putStrLn "Running goal"
   runCmdsY' yPipe gCmds
   checkY yPipe

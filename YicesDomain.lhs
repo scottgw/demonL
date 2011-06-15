@@ -5,7 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE OverloadedStrings, TupleSections #-}
-module YicesDomain (generateDomain) where
+module YicesDomain (procDom) where
 
 import Control.Applicative
 
@@ -97,14 +97,17 @@ a domain to a series of Yices commands.
 \begin{code}
 procDom :: DomainU -> [CmdY]
 procDom untypedDom  = 
-    let Right d@(Domain types procs) = runTypeM $ typecheckDomain untypedDom
-    in concat  [ tagsAndTypes d 
-               , frameCmds
-               , attrFunctions types
-               , equalityFunctions types
-               , frames types
-               , actions types procs
-               ]
+    let eiDom = runTypeM $ typecheckDomain untypedDom
+    in either (error . ("Error typechecking domain: " ++))
+              ( \d@(Domain types procs) -> 
+                    concat  [ tagsAndTypes d 
+                            , frameCmds
+                            , attrFunctions types
+                            , equalityFunctions types
+                            , frames types
+                            , actions types procs
+                            ]) 
+              eiDom
 \end{code}
 
 
@@ -321,11 +324,12 @@ argsFromArray =
 \end{code}
 
 \begin{code}
+-- genAndTypeDomain dom = 
 generateDomain fileName = do
   domE <- parseFromFile domain fileName
-  let writeAndProcess dom = (dom,) <$>  writeYices fileName (procDom dom)
-  either (error . parseErrorStr fileName  . show)
-         writeAndProcess
-         domE
+  let writeAndProcess dom = (dom,) <$> writeYices fileName (procDom dom)
+  case domE of 
+    Right dom -> Right <$> writeAndProcess dom
+    Left err -> Left <$> pure err
 \end{code}
 \end{document}
