@@ -1,0 +1,13 @@
+type vector
+  {
+    length: INTEGER
+  }
+
+clear (v: vector)
+  ensure
+    zero_length: v.length = 0
+
+last_index_of_2 (v: vector, e: INTEGER, i: INTEGER)
+  require
+    in_bounds: i >= 0 and i < v.length
+  
