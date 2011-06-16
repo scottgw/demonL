@@ -14,7 +14,7 @@ YicesDomain.tex: YicesDomain.lhs
 
 test: demonL
 	./demonL stock.dmn stock.goal
-	racket pretty.rkt stock.dmn.lisp
+	./demonL vector.dmn vector.goal
 
 # %.hi: %.hs
 # 	ghc $<
