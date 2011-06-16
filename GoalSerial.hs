@@ -17,8 +17,7 @@ goalCommands dom goal = concat [ goalDefs goal
                                ]
 
 goalAction i = 
-  let act = APP (VarE "actions") [tag, exc, LitI i]
-      tag = APP (VarE "tag_array") [LitI i]
+  let act = APP (VarE "actions") [exc, LitI i]
       exc = VarE "all-frames"
   in ASSERT act
 

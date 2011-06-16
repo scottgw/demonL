@@ -120,10 +120,12 @@ This represents that an action can be true in a particular state.
 actionType = ARR [indexType, basicTypeY BoolType]
 \end{code}
 \begin{code}
-actionBody :: ExpY -> [TExpr] -> [TExpr] -> ExpY
-actionBody frame pres posts =
-    let prePosts      = map (exprY preIdx preIdx) pres ++ map (exprY preIdx postIdx) posts
-    in actionBodyLambda (AND $ prePosts ++ [frame])
+actionBody :: [ExpY] -> [TExpr] -> [TExpr] -> ExpY
+actionBody additional pres posts =
+    let 
+        mapExpr next = map (exprY preIdx next)
+        prePosts = mapExpr preIdx pres ++ mapExpr postIdx posts
+    in actionBodyLambda (AND $ prePosts ++ additional)
 \end{code}
 
 \begin{code}
@@ -137,7 +139,8 @@ actionExpr types proc =
     pres   = clauseExprs (prcdReq proc)
     posts  = clauseExprs (prcdEns proc)
     frame  = actionFrame types proc
-    body   = actionBody frame pres posts
+    tag    = APP (VarE "tag_array") [preIdx] := VarE (tagName proc)
+    body   = actionBody [frame, tag] pres posts
   in LAMBDA (declsToArgsY (prcdArgs proc)) body
 \end{code}
 
@@ -288,17 +291,15 @@ parseErrorStr fn = (++) ("Error parsing demonic domain: " ++ fn ++ "\n")
 Group action definition
 
 \begin{code}
-actionsDecls = zip ["tag", "frm", "idx"] listActionsTypes
+actionsDecls = zip ["frm", "idx"] listActionsTypes
 actionsType = ARR listActionsTypes
-listActionsTypes = [tagType, frameType, indexType, boolTypeY]
+listActionsTypes = [frameType, indexType, boolTypeY]
 \end{code}
 
 \begin{code}
 actionOptions procs = 
   let actionsLambda = LAMBDA actionsDecls actionExprs
-      actionExprs = OR $ map actionExpr procs
-      actionExpr p = AND [tagMatch p, runProc p]
-      tagMatch p = VarE "tag" := VarE (tagName p)
+      actionExprs = OR $ map runProc procs
       runProc p = APP (APP (VarE $ prcdName p) (argsFromArray (prcdArgs p))) 
                       [preIdx]
   in DEFINE ("actions", actionsType) (Just actionsLambda)
