@@ -15,6 +15,14 @@ Stock_close (s: Stock)
   ensure
     not_open: not s.is_open
 
+Stock_sell (s: Stock, amt: INTEGER)
+  require
+    pos: amt >= 0
+    has_enough: amt <= s.shares
+    open: s.is_open
+  ensure
+    is_sold: s.shares = old s.shares - amt
+
 Stock_buy (s: Stock, amt: INTEGER)
   require
     pos: amt >= 0

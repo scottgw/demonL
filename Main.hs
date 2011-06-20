@@ -1,6 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
+import Data.Time.Clock
+
 import Math.SMT.Yices.Syntax
 import Math.SMT.Yices.Pipe
 
@@ -41,7 +43,13 @@ interpResult (InCon ss) _ _ = mapM_ putStrLn ss
 
 runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands dCmds gCmds = do
-  yPipe <- createYicesPipe "/Users/scott/local/bin/yices" []
+  t1 <- getCurrentTime
+  yicesPath <- getEnv "YICES_EXE"
+  yPipe <- createYicesPipe yicesPath []
   runCmdsY' yPipe dCmds
   runCmdsY' yPipe gCmds
-  checkY yPipe
+  resY <- checkY yPipe
+  t2 <- getCurrentTime
+  let diff = diffUTCTime t2 t1
+  print diff
+  return resY
