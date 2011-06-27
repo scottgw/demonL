@@ -26,7 +26,7 @@ lexeme =
                       ,["type"]
                       ,["Result"]
                       ,["ensure","require","invariant"]
-                      ,["INTEGER","REAL","BOOLEAN"]
+                      ,["Int","Double","Bool"]
                       ],
            P.caseSensitive = True
          }
@@ -71,3 +71,6 @@ braces = P.braces lexeme
 
 squares :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 squares = P.squares lexeme
+
+whiteSpace :: Stream s m Char => ParsecT s u m ()
+whiteSpace = P.whiteSpace lexeme
