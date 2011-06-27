@@ -1,6 +1,6 @@
 type Stock { 
-  shares: INTEGER
-  is_open: BOOLEAN
+  shares: Int
+  is_open: Bool 
   }
 
 Stock_open (s: Stock)
@@ -15,7 +15,7 @@ Stock_close (s: Stock)
   ensure
     not_open: not s.is_open
 
-Stock_sell (s: Stock, amt: INTEGER)
+Stock_sell (s: Stock, amt: Int)
   require
     pos: amt >= 0
     has_enough: amt <= s.shares
@@ -23,8 +23,9 @@ Stock_sell (s: Stock, amt: INTEGER)
   ensure
     is_sold: s.shares = old s.shares - amt
 
-Stock_buy (s: Stock, amt: INTEGER)
+Stock_buy (s: Stock, amt: Int)
   require
+    max_buy: amt <= 10
     pos: amt >= 0
     open: s.is_open
   ensure

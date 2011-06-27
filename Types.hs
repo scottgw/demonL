@@ -19,11 +19,11 @@ isBasic BoolType   = True
 isBasic _          = False
 
 instance Show Type where
-    show IntType       = "INTEGER"
-    show DoubleType    = "REAL"
+    show IntType       = "Int"
+    show DoubleType    = "Double"
     show NoType        = "notype"
     show VoidType      = "NONE"
-    show BoolType      = "BOOLEAN"
+    show BoolType      = "Bool"
     show (StructType s []) = s
     show (StructType s gs) = s ++ show gs
 
@@ -31,13 +31,13 @@ typeP :: Parser Type
 typeP = intType <|> boolType <|> doubleType <|> classType
 
 intType :: Parser Type
-intType = reserved "INTEGER" >> return IntType
+intType = reserved "Int" >> return IntType
 
 doubleType :: Parser Type
-doubleType = reserved "REAL" >> return DoubleType
+doubleType = reserved "Double" >> return DoubleType
 
 boolType :: Parser Type
-boolType = reserved "BOOLEAN" >> return BoolType
+boolType = reserved "Bool" >> return BoolType
 
 classType :: Parser Type
 classType = do

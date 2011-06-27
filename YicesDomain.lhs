@@ -308,7 +308,7 @@ actionOptions procs =
 \begin{code}
 argArrayDefines types = 
   let argDef s = DEFINE (argArrayFromName s, argArrayType s) Nothing
-      intArgs = DEFINE ("INTEGER_arg", ARR [intTypeY, intTypeY, intTypeY]) Nothing 
+      intArgs = DEFINE ("Int_arg", ARR [intTypeY, intTypeY, intTypeY]) Nothing 
   in [intArgs] ++  map (argDef . structName) types
 \end{code}
 
