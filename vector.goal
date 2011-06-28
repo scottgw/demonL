@@ -1,5 +1,5 @@
 v: vector
 
-v {length = 4}
+v.length = 4
 
-2 -> 3 > v.length
+@2-> 3 > v.length

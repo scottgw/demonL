@@ -1,7 +1,6 @@
 s : Stock
 
-s {shares  = 1,
-   is_open = False
-  }
+s.shares = 1
+not s.is_open 
 
-4 -> s.shares = 20 and not s.is_open 
+@4-> s.shares = 20 and not s.is_open 

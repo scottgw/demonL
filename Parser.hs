@@ -107,13 +107,8 @@ argumentList = parens (decl `sepBy` comma)
 domain = whiteSpace *> (Domain <$> many struct <*> many procedureP)
 
 -- Goal description
-assign = Assignment <$> identifier <*> braces nameMap 
-  where
-    nameMap  = nameExpr `sepBy` comma
-    nameExpr = (,) <$> identifier <*> (reservedOp "=" *> expr)
-
 serialGoal = 
   whiteSpace *> (SerialGoal <$> many (try decl)
-                            <*> many assign 
-                            <*> integer
+                            <*> many expr
+                            <*> (reservedOp "@" *> integer)
                             <*> (reservedOp "->" *> expr))
