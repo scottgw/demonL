@@ -1,0 +1,10 @@
+type R {
+  a: Int
+  b: Bool
+  }
+
+op (r: R)
+  require
+    p: r.b and not (r = null)
+  ensure
+    q: not r.b
