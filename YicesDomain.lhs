@@ -9,12 +9,6 @@ module YicesDomain (procDom) where
 
 import Control.Applicative
 
-import Control.Monad.Trans.Error
-
-import Data.List
-import qualified Data.Set as S
-import qualified Data.Map as M
-
 import Math.SMT.Yices.Syntax
 
 import Text.Parsec.ByteString
@@ -175,11 +169,12 @@ maxObjs = 4
 
 \begin{code}
 idxRefObj nm i = nm ++ "_obj" ++ show i
+allValsOf str = nullStr str :  map (idxRefObj str) [1..maxObjs]
 \end{code}
 
 \begin{code}
 structConvY (Struct name _) = DEFTYP (structStr name) (Just $ SCALAR objs)
-    where objs = map (idxRefObj name) [1 .. maxObjs]
+    where objs = nullStr name : map (idxRefObj name) [1 .. maxObjs]
 \end{code}
 
 \begin{code}
@@ -242,8 +237,8 @@ frameAllObjs (Struct name _) =
     frameName      = name ++ "_frame_all"
     frameType      = ARR [excludeType, indexType, boolTypeY]
     typeEq         = VarE $ name ++ "_frame_single"
-    singleFrame i  = APP typeEq [VarE (idxRefObj name i), excludePredE, preIdx]
-    allFrames      = map singleFrame [1 .. maxObjs]
+    singleFrame n  = APP typeEq [VarE n, excludePredE, preIdx]
+    allFrames      = map singleFrame (allValsOf name)
     frameLambda    = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
   in DEFINE (frameName, frameType) (Just frameLambda)
 \end{code}

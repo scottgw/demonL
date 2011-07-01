@@ -82,8 +82,9 @@ data Expr =
   | Cast Type Expr
   | LitInt Int
   | LitBool Bool
-  | LitVoid
-  | LitDouble Double deriving Eq
+  | LitDouble Double
+  | LitNull
+  deriving Eq
 
 instance Show Expr where
     show (Call s args) 
@@ -98,4 +99,4 @@ instance Show Expr where
     show (LitInt i)    = show i
     show (LitBool b)   = show b
     show (LitDouble d) = show d
-    show LitVoid       = "Void"
+    show LitNull       = "null"

@@ -63,8 +63,8 @@ factor = try lookupP <|> try access <|> factor'
 factor' :: Parser Expr
 factor' = 
       intLit
+  <|> nullLit
   <|> boolLit
-  <|> void
   <|> try call
   <|> resultVar
   <|> var
@@ -75,7 +75,7 @@ access = go =<< (accs =<< factor')
     accs e = Access e <$> (dot *> identifier)
     go e = try (go =<< accs e) <|> pure e
 
-void = reserved "Void" >> return LitVoid
+nullLit = reserved "null" *> pure LitNull
 lookupP = BinOpExpr ArrayIndex <$> factor' <*> squares expr
 argsP = parens (expr `sepBy` comma)
 

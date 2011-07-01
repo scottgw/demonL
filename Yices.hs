@@ -32,6 +32,10 @@ exprY _ _ (Var v t) = VarE v
 exprY _ _ (LitInt int) = LitI (fromIntegral int)
 exprY _ _ (LitBool b) = LitB b
 exprY _ _ (LitDouble d) = LitR (toRational d)
+exprY _ _ (LitNull t) = nullValue t
+
+nullValue (StructType n _) = VarE $ nullStr n
+nullStr n = "null_" ++ n
 
 unaryYices Not pre post e = NOT (exprY pre post e)
 unaryYices Neg pre post e = LitI 0 :-: exprY pre post e

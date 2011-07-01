@@ -10,7 +10,7 @@ import qualified Data.Map as M
 
 import qualified AST as A
 import AST (Struct (..), ProcedureU, Procedure (..), Clause (..), declsToMap,
-            Domain (..), DomainU, BinOp (..), UnOp (..))
+            Domain (..), DomainU, BinOp (..), UnOp (..), ROp (..))
 import Types
 
 type TypeM a = ErrorT String Identity a
@@ -28,7 +28,7 @@ data TExpr =
   | Cast TExpr Type
   | LitInt Int
   | LitBool Bool
-  | LitVoid
+  | LitNull Type
   | LitDouble Double deriving (Show, Eq)
 
 runTypeM = runIdentity . runErrorT
@@ -42,7 +42,7 @@ texprType (ResultVar t) = t
 texprType (Cast _ t) = t
 texprType (LitInt _) = IntType
 texprType (LitBool _) = BoolType
-texprType LitVoid = VoidType 
+texprType (LitNull t) = t
 texprType (LitDouble _) = DoubleType 
 
 
@@ -85,8 +85,8 @@ getStructNameM (StructType n _) = return n
 getStructNameM t = throwError $ show t ++ " not a struct"
 
 unsafeCheck decls types e = 
-    let Right te = runTypeM $ typecheckExpr (declsToMap decls) types e
-    in te
+    let te = runTypeM $ typecheckExpr (declsToMap decls) types e
+    in either error id te
 
 typecheckExpr :: M.Map String Type -> [Struct] -> A.Expr -> TypeM TExpr
 typecheckExpr argMap types = 
@@ -99,11 +99,21 @@ typecheckExpr argMap types =
         tc (A.Var n) = Var n <$> lookupName n argMap
         tc (A.LitInt i) = pure $ LitInt i
         tc (A.LitBool b) = pure $ LitBool b
-        tc (A.BinOpExpr bop e1 e2) =
+        tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull A.LitNull) = 
+          pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
+        tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull e) =
+          let eM     = tc e
+              nullM  = LitNull <$> (texprType <$> eM)
+          in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
+        tc (A.BinOpExpr bOp@(RelOp Eq _) e A.LitNull) =
+          let eM     = tc e
+              nullM  = LitNull <$> (texprType <$> eM)
+          in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+        tc (A.BinOpExpr bOp e1 e2) =
             let e1M  = tc e1
                 e2M  = tc e2
-                tM   = join $ binOpTypes bop <$> e1M <*> e2M
-            in BinOpExpr bop <$> e1M <*> e2M <*> tM
+                tM   = join $ binOpTypes bOp <$> e1M <*> e2M
+            in BinOpExpr bOp <$> e1M <*> e2M <*> tM
         tc (A.UnOpExpr uop e) = 
             let eM  = tc e
                 tM  = join $ unOpTypes uop <$> eM
@@ -133,11 +143,10 @@ unOpTypes Neg e
 unOpTypes Old e = return $ texprType e
 
 binOpTypes :: BinOp -> TExpr -> TExpr -> TypeM Type
-binOpTypes (RelOp r _) e1 e2 = if texprType e1 == texprType e2 
-                         then pure BoolType
-                         else throwError $ show (e1,e2) ++ 
-                                  " are unsuitable arguments for " ++ 
-                                  show r
+binOpTypes (RelOp r _) e1 e2 
+  | texprType e1 == texprType e2 = pure BoolType
+  | otherwise =  throwError $ 
+                 show (e1,e2) ++ " are unsuitable arguments for " ++ show r
 binOpTypes op e1 e2
     | isNum op = case (texprType e1, texprType e2) of
                      (IntType, IntType) -> return IntType
