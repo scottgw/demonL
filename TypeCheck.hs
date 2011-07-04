@@ -99,6 +99,9 @@ typecheckExpr argMap types =
         tc (A.Var n) = Var n <$> lookupName n argMap
         tc (A.LitInt i) = pure $ LitInt i
         tc (A.LitBool b) = pure $ LitBool b
+        
+        -- both equality and inequality are dealt with specially
+        -- as they are needed to type `null' values.
         tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull A.LitNull) = 
           pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
         tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull e) =
@@ -109,6 +112,19 @@ typecheckExpr argMap types =
           let eM     = tc e
               nullM  = LitNull <$> (texprType <$> eM)
           in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+              
+        tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull A.LitNull) = 
+          pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
+        tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull e) =
+          let eM     = tc e
+              nullM  = LitNull <$> (texprType <$> eM)
+          in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
+        tc (A.BinOpExpr bOp@(RelOp Neq _) e A.LitNull) =
+          let eM     = tc e
+              nullM  = LitNull <$> (texprType <$> eM)
+          in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+
+
         tc (A.BinOpExpr bOp e1 e2) =
             let e1M  = tc e1
                 e2M  = tc e2
