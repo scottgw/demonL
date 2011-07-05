@@ -19,7 +19,7 @@ struct = reserved "type" *>
 expr :: Parser Expr
 expr = buildExpressionParser table factor
 
-table :: Stream s m Char => OperatorTable s u m Expr
+-- table :: Stream s m Char => OperatorTable s u m Expr
 table = 
     [[prefix "old" (UnOpExpr Old)]
     ,[prefix "not" (UnOpExpr Not)
@@ -44,15 +44,15 @@ table =
      ]
     ]
 
-prefix :: Stream s m Char => 
-          String -> (Expr -> Expr) -> Operator s u m Expr
+--prefix :: Stream s m Char => 
+--          String -> (Expr -> Expr) -> Operator s u m Expr
 prefix name fun = 
     Prefix $ do
       reservedOp name
       return fun
 
-binary :: Stream s m Char => 
-          String -> (Expr -> Expr -> Expr) -> Assoc -> Operator s u m Expr
+-- binary :: Stream s m Char => 
+--           String -> (Expr -> Expr -> Expr) -> Assoc -> Operator s u m Expr
 binary name fun = 
     Infix $ do
       reservedOp name

@@ -2,12 +2,15 @@
 
 module ParserBasic where
 
+import Control.Monad.Identity
+
 import Text.Parsec
 import Text.Parsec.ByteString
 import qualified Text.Parsec.Token as P
 
+import Data.ByteString (ByteString)
 
-lexeme :: Stream s m Char => P.GenTokenParser s u m
+lexeme :: P.GenTokenParser ByteString () Identity
 lexeme = 
     P.makeTokenParser $ P.LanguageDef
          {
@@ -40,38 +43,45 @@ resOps = concat [["*","+"]
                 ,["not", "and", "and then", "or", "or else", "implies"]
                 ]
 
-identifier :: Stream s m Char => ParsecT s u m String
+type BSParser a = ParsecT ByteString () Identity a
+
+-- whiteOut p = whiteSpace *> p
+
+-- whiteSpace = skipMany1 (satisfy isSpace)
+
+-- identifier :: Stream s m Char => ParsecT s u m String
 identifier = P.identifier lexeme
 
-integer :: Stream s m Char => ParsecT s u m Integer
+-- integer :: Stream s m Char => ParsecT s u m Integer
 integer = P.integer lexeme
 
-colon :: Parser ()
+-- colon :: Parser ()
 colon = reservedOp ":"
 
-comma :: Stream s m Char => ParsecT s u m String
+-- comma :: Stream s m Char => ParsecT s u m String
 comma = P.comma lexeme
 
-dot :: Stream s m Char => ParsecT s u m String
-dot = P.dot lexeme
+-- dot :: Stream s m Char => ParsecT s u m String
+dot :: Parser Char
+dot = char '.' -- P.dot lexeme
 
-float :: Stream s m Char => ParsecT s u m Double
+-- float :: Stream s m Char => ParsecT s u m Double
 float = P.float lexeme
 
-reserved :: Stream s m Char => String -> ParsecT s u m ()
+-- reserved :: Stream s m Char => String -> ParsecT s u m ()
 reserved = P.reserved lexeme
 
-reservedOp :: Stream s m Char => String -> ParsecT s u m ()
+-- reservedOp :: Stream s m Char => String -> ParsecT s u m ()
 reservedOp = P.reservedOp lexeme
 
-parens :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+-- parens :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 parens = P.parens lexeme
 
-braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+-- braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 braces = P.braces lexeme
 
-squares :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+-- squares :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 squares = P.squares lexeme
 
-whiteSpace :: Stream s m Char => ParsecT s u m ()
+-- whiteSpace :: Stream s m Char => ParsecT s u m ()
 whiteSpace = P.whiteSpace lexeme

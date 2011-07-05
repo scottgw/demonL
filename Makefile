@@ -1,7 +1,11 @@
-WARNINGS=-Wall -fno-warn-missing-signatures
+WARNINGS=-Wall -fno-warn-missing-signatures -rtsopts
 
 demonL: Main.hs TypeCheck.hs YicesDomain.lhs Parser.hs Script.hs
 	ghc --make -O2 ${WARNINGS} Main.hs -o demonL
+
+prof: Main.hs TypeCheck.hs YicesDomain.lhs Parser.hs Script.hs
+	ghc --make -O2 ${WARNINGS} Main.hs -o demonL -prof -auto-all
+
 
 doc: YicesDomain.tex
 	pdflatex $<
