@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module ParserBasic where
+module ParserBasic (comma, reserved, identifier, squares, braces, reservedOp, parens, dot, integer, colon, whiteSpace) where
 
 import Control.Monad.Identity
 
@@ -62,8 +62,8 @@ colon = reservedOp ":"
 comma = P.comma lexeme
 
 -- dot :: Stream s m Char => ParsecT s u m String
-dot :: Parser Char
-dot = char '.' -- P.dot lexeme
+-- dot :: Parser Char
+dot = P.dot lexeme
 
 -- float :: Stream s m Char => ParsecT s u m Double
 float = P.float lexeme

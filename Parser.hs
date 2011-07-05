@@ -22,6 +22,7 @@ expr = buildExpressionParser table factor
 -- table :: Stream s m Char => OperatorTable s u m Expr
 table = 
     [[prefix "old" (UnOpExpr Old)]
+    ,[binary "."   dotBinary AssocLeft]
     ,[prefix "not" (UnOpExpr Not)
      ,prefix "-"   (UnOpExpr Neg)
      ]
@@ -29,23 +30,21 @@ table =
      ,binary "/"  (BinOpExpr Div) AssocLeft]
     ,[binary "+"  (BinOpExpr Add) AssocLeft
      ,binary "-"  (BinOpExpr Sub) AssocLeft]
-    ,[binary "<=" (BinOpExpr (RelOp Lte NoType)) AssocLeft]
-    ,[binary "<"  (BinOpExpr (RelOp Lt  NoType)) AssocLeft]
-    ,[binary "="  (BinOpExpr (RelOp Eq  NoType)) AssocLeft]
-    ,[binary "/=" (BinOpExpr (RelOp Neq NoType)) AssocLeft]
-    ,[binary ">"  (BinOpExpr (RelOp Gt  NoType)) AssocLeft]
-    ,[binary ">=" (BinOpExpr (RelOp Gte NoType)) AssocLeft]
-    ,[
-      binary "and then"  (BinOpExpr Or)   AssocLeft             
-     ,binary "and"  (BinOpExpr And)  AssocLeft
-     ,binary "or else"  (BinOpExpr Or)   AssocLeft
+    ,[binary "<=" (BinOpExpr (RelOp Lte NoType)) AssocLeft
+     ,binary "<"  (BinOpExpr (RelOp Lt  NoType)) AssocLeft
+     ,binary "="  (BinOpExpr (RelOp Eq  NoType)) AssocLeft
+     ,binary "/=" (BinOpExpr (RelOp Neq NoType)) AssocLeft
+     ,binary ">"  (BinOpExpr (RelOp Gt  NoType)) AssocLeft
+     ,binary ">=" (BinOpExpr (RelOp Gte NoType)) AssocLeft
+     ]
+    ,[binary "and"  (BinOpExpr And)  AssocLeft
      ,binary "or"  (BinOpExpr Or)   AssocLeft
      ,binary "implies"  (BinOpExpr Implies)   AssocLeft
      ]
     ]
 
---prefix :: Stream s m Char => 
---          String -> (Expr -> Expr) -> Operator s u m Expr
+dotBinary e (Var i) = Access e i
+
 prefix name fun = 
     Prefix $ do
       reservedOp name
@@ -58,25 +57,17 @@ binary name fun =
       reservedOp name
       return fun
 
-factor = try lookupP <|> try access <|> factor'
-
-factor' :: Parser Expr
-factor' = 
+factor :: Parser Expr
+factor = 
       intLit
   <|> nullLit
   <|> boolLit
-  <|> try call
   <|> resultVar
-  <|> var
+  <|> var  
+  <|> call
   <|> parens expr
 
-access = go =<< (accs =<< factor')
-  where 
-    accs e = Access e <$> (dot *> identifier)
-    go e = try (go =<< accs e) <|> pure e
-
 nullLit = reserved "null" *> pure LitNull
-lookupP = BinOpExpr ArrayIndex <$> factor' <*> squares expr
 argsP = parens (expr `sepBy` comma)
 
 resultVar = reserved "Result" *> pure ResultVar
@@ -104,11 +95,11 @@ decl = Decl <$> identifier <*> (colon *> typeP)
 argumentList = parens (decl `sepBy` comma)
 
 -- Domain description
-domain = whiteSpace *> (Domain <$> many struct <*> many procedureP)
+domain = optional whiteSpace *> (Domain <$> many struct <*> many procedureP)
 
 -- Goal description
 serialGoal = 
-  whiteSpace *> (SerialGoal <$> many (try decl)
-                            <*> many expr
-                            <*> (reservedOp "@" *> integer)
-                            <*> (reservedOp "->" *> expr))
+  optional whiteSpace *> (SerialGoal <$> many (try decl)
+                          <*> many expr
+                          <*> (reservedOp "@" *> integer)
+                          <*> (reservedOp "->" *> expr))
