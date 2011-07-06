@@ -90,8 +90,8 @@ instance Show Expr where
     show (Call s args) 
         = s ++ "(" ++ intercalate "," (map show args) ++ ")"
     show (BinOpExpr op e1 e2) 
-        = "(" ++ show e1 ++ " " ++ show op ++ " " ++ show e2 ++ ")"
-    show (UnOpExpr op e) = show op ++ " " ++ show e
+        = "(" ++ show e1 ++ ") " ++ show op ++ " (" ++ show e2 ++ ")"
+    show (UnOpExpr op e) = show op ++ " (" ++ show e ++ ")"
     show (Access e f)  = show e ++ "." ++ f
     show (Var s)       = s
     show ResultVar     = "Result"
