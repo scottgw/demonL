@@ -21,8 +21,8 @@ expr = buildExpressionParser table factor
 
 -- table :: Stream s m Char => OperatorTable s u m Expr
 table = 
-    [[prefix "old" (UnOpExpr Old)]
-    ,[binary "."   dotBinary AssocLeft]
+    [[binary "."   dotBinary AssocLeft]
+    ,[prefix "old" (UnOpExpr Old)]
     ,[prefix "not" (UnOpExpr Not)
      ,prefix "-"   (UnOpExpr Neg)
      ]
