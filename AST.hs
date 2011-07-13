@@ -39,6 +39,7 @@ data Domain e =
   Domain  
   { domStructs :: [Struct]
   , domProcs :: [Procedure e]
+  , domFuncs :: [Procedure e]
   } deriving Show
 
 

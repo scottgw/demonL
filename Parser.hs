@@ -12,10 +12,6 @@ import Goal
 import ParserBasic
 import Types
 
-struct :: Parser Struct
-struct = reserved "type" *> 
-         (Struct <$> identifier <*> braces (many1 decl))
-
 expr :: Parser Expr
 expr = buildExpressionParser table factor
 
@@ -95,7 +91,22 @@ decl = Decl <$> identifier <*> (colon *> typeP)
 argumentList = parens (decl `sepBy` comma)
 
 -- Domain description
-domain = optional whiteSpace *> (Domain <$> many struct <*> many procedureP)
+struct :: Parser Struct
+struct = reserved "type" *> 
+         (Struct <$> identifier <*> braces (many1 decl))
+
+emptyDom = Domain [] [] []
+addStruct (Domain ss ps fs) s = Domain (s:ss) ps fs
+addProc   (Domain ss ps fs) p 
+  | prcdResult p == NoType  = Domain ss (p:ps) fs
+  | otherwise               = Domain ss ps (p:fs)
+                           
+domain = 
+  let
+    upd d   = addStruct d <$> struct <|> addProc d <$> procedureP
+    domP d  = (domP =<< upd d) <|> pure d
+  in optional whiteSpace *> domP emptyDom
+
 
 -- Goal description
 serialGoal = 

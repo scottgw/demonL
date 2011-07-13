@@ -48,8 +48,10 @@ texprType (LitDouble _) = DoubleType
 
 
 typecheckDomain :: DomainU -> TypeM DomainT
-typecheckDomain (Domain types procs) = 
-    Domain <$> pure types <*> mapM (typecheckProc types) procs
+typecheckDomain (Domain types procs funcs) = 
+    Domain <$> pure types 
+           <*> mapM (typecheckProc types) procs
+           <*> mapM (typecheckProc types) funcs
 
 typecheckProc :: [Struct] -> ProcedureU -> TypeM ProcedureT
 typecheckProc types (Procedure name args res req ens) =

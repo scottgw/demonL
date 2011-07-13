@@ -30,7 +30,7 @@ The reference type declarations also require the generation of the
 ``top'' type which can be any of the reference types.
 For simplicity, we also generate the argument array definitions as well.
 \begin{code}
-tagsAndTypes (Domain types procs) = procTagsAndArray ++ refDefines
+tagsAndTypes (Domain types procs funcs) = procTagsAndArray ++ refDefines
     where
       procTagsAndArray  =  [procTags procs, tagArray]
       refDefines        =  map structConvY types ++ 
@@ -93,7 +93,7 @@ procDom :: DomainU -> [CmdY]
 procDom untypedDom  = 
     let eiDom = runTypeM $ typecheckDomain untypedDom
     in either (error . ("Error typechecking domain: " ++))
-              ( \d@(Domain types procs) -> 
+              ( \d@(Domain types procs funcs) ->
                     concat  [ tagsAndTypes d 
                             , frameCmds
                             , attrFunctions types
