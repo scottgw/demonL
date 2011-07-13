@@ -320,13 +320,4 @@ argsFromArray =
   in zipWith go [1..] 
 \end{code}
 
-\begin{code}
--- genAndTypeDomain dom = 
-generateDomain fileName = do
-  domE <- parseFromFile domain fileName
-  let writeAndProcess dom = (dom,) <$> writeYices fileName (procDom dom)
-  case domE of 
-    Right dom -> Right <$> writeAndProcess dom
-    Left err -> Left <$> pure err
-\end{code}
 \end{document}
