@@ -10,7 +10,7 @@ import qualified Data.Map as M
 
 import qualified AST as A
 import AST (Struct (..), ProcedureU, Procedure (..), Clause (..), declsToMap,
-            Domain (..), DomainU, BinOp (..), UnOp (..), ROp (..))
+            Domain (..), DomainU, BinOp (..), UnOp (..), ROp (..), Decl (..))
 import Types
 
 type TypeM a = ErrorT String Identity a
@@ -48,22 +48,22 @@ texprType (LitDouble _) = DoubleType
 
 
 typecheckDomain :: DomainU -> TypeM DomainT
-typecheckDomain (Domain types procs funcs) = 
+typecheckDomain d@(Domain types procs funcs) = 
     Domain <$> pure types 
-           <*> mapM (typecheckProc types) procs
-           <*> mapM (typecheckProc types) funcs
+           <*> mapM (typecheckProc d) procs
+           <*> mapM (typecheckProc d) funcs
 
-typecheckProc :: [Struct] -> ProcedureU -> TypeM ProcedureT
-typecheckProc types (Procedure name args res req ens) =
+typecheckProc :: DomainU -> ProcedureU -> TypeM ProcedureT
+typecheckProc dom (Procedure name args res req ens) =
     let argMap = declsToMap args
-        tcClause = typecheckClause argMap types
+        tcClause = typecheckClause argMap dom res
         req' = mapM tcClause req
         ens' = mapM tcClause ens
     in Procedure name args res <$> req' <*> ens'
 
 
-typecheckClause argMap types (Clause n e) = 
-    Clause n <$> typecheckExpr argMap types e
+typecheckClause argMap dom res (Clause n e) = 
+    Clause n <$> typecheckExpr argMap dom res e
 
 noStructErr struct = throwError $ "<" ++ struct ++ "> not found"
 noAttrErr struct attr = 
@@ -86,57 +86,83 @@ getStructNameM :: Type -> TypeM String
 getStructNameM (StructType n _) = return n
 getStructNameM t = throwError $ show t ++ " not a struct"
 
-unsafeCheck decls types e = 
-    let te = runTypeM $ typecheckExpr (declsToMap decls) types e
+unsafeCheck decls dom e = 
+    let te = runTypeM $ typecheckExpr (declsToMap decls) dom NoType e
     in either error id te
 
-typecheckExpr :: M.Map String Type -> [Struct] -> A.Expr -> TypeM TExpr
-typecheckExpr argMap types = 
-    let tc :: A.Expr -> TypeM TExpr
-        tc (A.Access e attr) = 
-            let eM         = tc e
-                structStr  = getStructNameM =<< (texprType <$> eM)
-                attrTypM   = lookupAttrType types attr =<< structStr
-            in Access <$> eM <*> pure attr <*> attrTypM
-        tc (A.Var n) = Var n <$> lookupName n argMap
-        tc (A.LitInt i) = pure $ LitInt i
-        tc (A.LitBool b) = pure $ LitBool b
-        
-        -- both equality and inequality are dealt with specially
-        -- as they are needed to type `null' values.
-        tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull A.LitNull) = 
-          pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
-        tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull e) =
-          let eM     = tc e
-              nullM  = LitNull <$> (texprType <$> eM)
-          in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
-        tc (A.BinOpExpr bOp@(RelOp Eq _) e A.LitNull) =
-          let eM     = tc e
-              nullM  = LitNull <$> (texprType <$> eM)
-          in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
-              
-        tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull A.LitNull) = 
-          pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
-        tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull e) =
-          let eM     = tc e
-              nullM  = LitNull <$> (texprType <$> eM)
-          in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
-        tc (A.BinOpExpr bOp@(RelOp Neq _) e A.LitNull) =
-          let eM     = tc e
-              nullM  = LitNull <$> (texprType <$> eM)
-          in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+findFunction name dom = 
+  let fns = domFuncs dom
+      p f = prcdName f == name
+  in find p fns
 
+checkFunctionArgs argMap dom resType f args
+  | length (prcdArgs f) /= length args = 
+    throwError $ "Arguments not same length"
+  | otherwise =
+      let formalTypes = map declType (prcdArgs f)
+          actualArgs  = mapM (fmap texprType . typecheckExpr argMap dom resType) args
+          sameTypesM  = and <$> (zipWith (==) formalTypes <$> actualArgs)
+      in do
+        b <- sameTypesM
+        if b 
+          then return (prcdResult f)
+          else throwError "Some types don't conform in arguments"
 
-        tc (A.BinOpExpr bOp e1 e2) =
-            let e1M  = tc e1
-                e2M  = tc e2
-                tM   = join $ binOpTypes bOp <$> e1M <*> e2M
-            in BinOpExpr bOp <$> e1M <*> e2M <*> tM
-        tc (A.UnOpExpr uop e) = 
-            let eM  = tc e
-                tM  = join $ unOpTypes uop <$> eM
-            in UnOpExpr uop <$> eM <*> tM
-        tc e = throwError $ "Can't typecheck " ++ show e
+typecheckExpr :: M.Map String Type -> DomainU -> Type -> A.Expr -> TypeM TExpr
+typecheckExpr argMap dom resType = 
+    let 
+      types = domStructs dom
+      tc :: A.Expr -> TypeM TExpr
+      tc (A.Access e attr) = 
+        let eM         = tc e
+            structStr  = getStructNameM =<< (texprType <$> eM)
+            attrTypM   = lookupAttrType types attr =<< structStr
+        in Access <$> eM <*> pure attr <*> attrTypM
+      tc (A.Var n) = Var n <$> lookupName n argMap
+      tc (A.LitInt i) = pure $ LitInt i
+      tc (A.LitBool b) = pure $ LitBool b
+      tc A.ResultVar  = pure $ ResultVar resType
+      tc (A.Call name args) = 
+        case findFunction name dom of
+          Just f -> let argsM = mapM (typecheckExpr argMap dom resType) args 
+                    in Call name <$> argsM
+                                 <*> checkFunctionArgs argMap dom resType f args
+          Nothing -> throwError $ "Coudln't find function " ++ name
+      
+      -- both equality and inequality are dealt with specially
+      -- as they are needed to type `null' values.
+      tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull A.LitNull) = 
+        pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
+      tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull e) =
+        let eM     = tc e
+            nullM  = LitNull <$> (texprType <$> eM)
+        in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
+      tc (A.BinOpExpr bOp@(RelOp Eq _) e A.LitNull) =
+        let eM     = tc e
+            nullM  = LitNull <$> (texprType <$> eM)
+        in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+            
+      tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull A.LitNull) = 
+        pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
+      tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull e) =
+        let eM     = tc e
+            nullM  = LitNull <$> (texprType <$> eM)
+        in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
+      tc (A.BinOpExpr bOp@(RelOp Neq _) e A.LitNull) =
+        let eM     = tc e
+            nullM  = LitNull <$> (texprType <$> eM)
+        in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+
+      tc (A.BinOpExpr bOp e1 e2) =
+        let e1M  = tc e1
+            e2M  = tc e2
+            tM   = join $ binOpTypes bOp <$> e1M <*> e2M
+        in BinOpExpr bOp <$> e1M <*> e2M <*> tM
+      tc (A.UnOpExpr uop e) = 
+        let eM  = tc e
+            tM  = join $ unOpTypes uop <$> eM
+        in UnOpExpr uop <$> eM <*> tM
+      tc e = throwError $ "Can't typecheck " ++ show e
     in tc
 
 isBool And      = True

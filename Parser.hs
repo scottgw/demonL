@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Parser (domain, serialGoal) where
+module Parser (domain, serialGoal, expr) where
 
 import Control.Applicative hiding ((<|>), optional, many)
 
@@ -59,15 +59,15 @@ factor =
   <|> nullLit
   <|> boolLit
   <|> resultVar
+  <|> try call
   <|> var  
-  <|> call
   <|> parens expr
 
 nullLit = reserved "null" *> pure LitNull
 argsP = parens (expr `sepBy` comma)
 
 resultVar = reserved "Result" *> pure ResultVar
-var = Var <$> identifier
+var = Var <$> (identifier <* notFollowedBy (char '('))
 call = Call <$> identifier <*> argsP
 
 intLit = fmap (LitInt . fromIntegral) integer

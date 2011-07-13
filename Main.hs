@@ -24,19 +24,23 @@ main = do
     else 
       do let (domainFileName:goalFileName:_) = args
          eiDom  <- parseFromFile domain domainFileName
+         putStrLn "Domain parsed"
          eiGoal <- parseFromFile serialGoal goalFileName
+         putStrLn "Goal parsed"
          case (eiDom, eiGoal) of
            (Right dom, Right goal) ->
                do dCmds  <- generateDomain dom domainFileName
+                  putStrLn "Domain generated"
                   gCmds  <- generateGoal dom goal goalFileName
+                  putStrLn "Goal generated"
                   runCommands dCmds gCmds dom goal
-           e -> error $ show e
+           e -> error $ "Error during parsing:\n" ++ show e
 
 generateDomain dom fileName = writeYices fileName (procDom dom)
 generateGoal dom goal fileName = writeYices fileName (goalSetup dom goal)
  
 interpResult (Sat exprs) dom goal =
-  putStrLn $  generateScript goal dom exprs
+  putStrLn $ generateScript goal dom exprs
 interpResult (UnSat _) _ _ = putStrLn "Unsat"
 interpResult (Unknown _) _ _  = putStrLn "Unknown"
 interpResult (InCon ss) _ _ = mapM_ putStrLn ss

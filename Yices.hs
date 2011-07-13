@@ -92,5 +92,3 @@ showCmds = unlines . map show
 
 writeYices name cmds = 
   writeFile (outputFileName name) (showCmds cmds) >> return cmds
-
-

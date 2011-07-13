@@ -24,16 +24,14 @@ goalDefs = map typeDefinition . declsToArgsY . vars
 
 goalInitState dom goal = map (assignmentExprs dom (vars goal)) (values goal)
 
-unsafeCheckDom decls dom = unsafeCheck decls (domStructs dom)
-
 exprYbefore = exprY (LitI 0) (LitI 0)
 exprYgoal step = exprY (LitI 0) (LitI step)
 
 
 assignmentExprs :: DomainU -> [Decl] -> A.Expr -> CmdY
-assignmentExprs dom decls = ASSERT . exprYbefore . unsafeCheckDom decls dom
+assignmentExprs dom decls = ASSERT . exprYbefore . unsafeCheck decls dom
 
 goalAssert dom goal step = 
-    (ASSERT . exprYgoal step . unsafeCheckDom (vars goal) dom . goalExpr) goal
+    (ASSERT . exprYgoal step . unsafeCheck (vars goal) dom . goalExpr) goal
 
 -- Ich danke für deine Mühen.
