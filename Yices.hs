@@ -23,11 +23,12 @@ structStr n = n ++ "_ref"
 -- Expression conversion
 exprY :: ExpY -> ExpY -> TExpr -> ExpY
 exprY pre post (Call name args t) = 
-    APP (VarE name) (map (exprY pre post) args ++ [post])
+    APP (APP (VarE name) (map (exprY pre post) args)) [post]
 exprY pre post (BinOpExpr bop e1 e2 t) = 
     binYices bop (exprY pre post e1) (exprY pre post e2)
 exprY pre post (UnOpExpr uop e t) = unaryYices uop pre post e
-exprY pre post (Access e f t) = exprY pre post (Call f [e] t)
+exprY pre post (Access e f t) = 
+  APP (VarE f) [exprY pre post e, post]
 exprY _ _ (Var v t) = VarE v
 exprY _ _ (LitInt int) = LitI (fromIntegral int)
 exprY _ _ (LitBool b) = LitB b

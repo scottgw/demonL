@@ -12,10 +12,11 @@ import Math.SMT.Yices.Syntax
 
 import AST
 import Goal
+import TypeCheck (ProcedureT)
 
 generateScript goal dom goalExprs = 
     let actionMap = foldr inspectTag M.empty goalExprs
-        argumentMap = foldr inspectArg M.empty goalExprs
+        argumentMap = foldr (inspectArg actionMap dom) M.empty goalExprs
         equivs = objEquivalence goal goalExprs
     in reconstrFromMaps dom actionMap argumentMap equivs
 
@@ -23,6 +24,7 @@ reconstrFromMaps dom actMap argMap equivs =
     let f idx proc = proc ++ " (" ++ 
                      reconstrArgs (numArgs dom proc) idx equivs argMap ++ 
                      ")"
+
         scriptMap = M.mapWithKey f actMap
     in unlines $ map snd $ M.toAscList scriptMap
 
@@ -35,10 +37,9 @@ objEquivalence goal goalExprs =
     in foldr f M.empty goalExprs
 
 numArgs dom name = 
-    let mbProc = find ((== name) . prcdName) (domProcs dom)
-    in case mbProc of
-         Just p -> length (prcdArgs p)
-         Nothing -> error $ "no proc " ++ name ++ " found"
+  case findProc dom name  of
+    Just p -> length (prcdArgs p)
+    Nothing -> error $ "no proc " ++ name ++ " found"
 
 isGoalVar v goal = v `elem` (map declName (vars goal))
 
@@ -49,24 +50,32 @@ reconstrArgs n idx equivs =
         exprEquiv e = show e
     in intercalate "," . take n . map (exprEquiv . snd) . M.toAscList . (M.! idx)
 
-inspectArg (e1 := e2) argsMap = 
+inspectArg actionMap dom (e1 := e2) argsMap = 
     let 
-        argTuple = argM e1 <|> argM e2
-        val = valM e1 <|> valM e2
+        argTuple = argM actionMap dom e1 <|> argM actionMap dom e2
+        val = valM actionMap dom e1 <|> valM actionMap dom e2
         insertArg (name, argNum, index) v =
             M.insertWith M.union index (M.singleton argNum v) argsMap
         argsMapM = insertArg <$> argTuple <*> val
     in maybe argsMap id argsMapM
 
-valM e = case argM e of
-           Just _ -> Nothing
-           _ -> Just e
+valM actionMap dom e = 
+  case argM actionMap dom e of
+    Just _ -> Nothing
+    _ -> Just e
 
 argStr = "_arg"
-argM (APP (VarE str) [LitI argNum, LitI index]) = 
-    (,argNum,index) <$> stripSuffix argStr str
-argM _ = Nothing
 
+argM actionMap dom (APP (VarE str) [LitI argNum, LitI index]) = 
+  let proc = findProcUnsafe dom (actionMap M.! index)
+      args = prcdArgs proc
+      argDecl = args !! fromIntegral (argNum - 1)
+      argTypeName = show $ declType argDecl
+  in if fromIntegral argNum <= length args && argTypeName `isPrefixOf` str 
+     then Just (argTypeName, argNum, index)
+     else Nothing
+argM _ _ _ = Nothing
+             
 
 inspectTag (e1 := e2) tagMap = 
     let tagNum   = tagNumM e1 <|> tagNumM e2

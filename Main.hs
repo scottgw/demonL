@@ -72,6 +72,7 @@ searchUpTo yPipe maxSteps dom goal =
           run1 (goalAssert dom goal (i+1))
           res <- check
           case res of 
-            Sat exprs  -> putStrLn $ generateScript goal dom exprs
+            Sat exprs  -> putStrLn (unlines $ map show exprs) >> 
+                          putStrLn (generateScript goal dom exprs)
             _          -> pop >> go (i+1)
   in go 0

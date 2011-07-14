@@ -99,6 +99,7 @@ procDom untypedDom  =
                             , attrFunctions types
                             , equalityFunctions types
                             , frames types
+                            , functions funcs
                             , actions types procs
                             ]) 
               eiDom
@@ -111,7 +112,8 @@ The action type is the result type of any action,
 namely a predicate on the state index to a boolean.
 This represents that an action can be true in a particular state.
 \begin{code}
-actionType = ARR [indexType, basicTypeY BoolType]
+indexedResult t = ARR [indexType, basicTypeY t]
+actionType = indexedResult BoolType
 \end{code}
 \begin{code}
 actionBody :: [ExpY] -> [TExpr] -> [TExpr] -> ExpY
@@ -139,6 +141,24 @@ actionExpr types proc =
 \end{code}
 
 \begin{code}
+functions fs = 
+  let functionDecl f = DEFINE (prcdName f, procYicesType f) Nothing
+      function f = ASSERT (VarE (prcdName f) := funcExpr f)
+  in map functionDecl fs ++ map function fs
+\end{code}
+
+\begin{code}
+funcExpr f = 
+  let 
+    body   = LAMBDA [(idxStr, indexType)] posts
+    posts  = 
+      case map clauseExpr (prcdEns f) of
+        [BinOpExpr (RelOp Eq _) (ResultVar _) e _] -> exprY preIdx postIdx e
+        ens -> error $ "Cannot process function ensures: " ++ show ens
+  in LAMBDA (declsToArgsY (prcdArgs f)) body
+\end{code}
+
+\begin{code}
 attrType :: String -> Type -> TypY
 attrType structType resultType = 
     ARR  [ basicTypeY (StructType structType [])
@@ -150,10 +170,9 @@ attrType structType resultType =
 procYicesType :: ProcedureT -> TypY
 procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) = 
   let ytypes = map (basicTypeY . declType) args
-  in  
-   case resultType of
-     NoType -> ARR (ytypes ++ [actionType])
-     _ -> error "only works on proper procedures, without a result"
+  in case resultType of
+       NoType -> ARR (ytypes ++ [actionType])
+       t -> ARR (ytypes ++ [indexedResult t])
 \end{code}
 
 \begin{code}

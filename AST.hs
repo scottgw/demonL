@@ -1,6 +1,6 @@
 module AST where
 
-import Data.List (intercalate)
+import Data.List (intercalate, find)
 import qualified Data.Map as M
 import Types
 
@@ -42,6 +42,9 @@ data Domain e =
   , domFuncs :: [Procedure e]
   } deriving Show
 
+
+findProc dom name = find ((== name) . prcdName) (domProcs dom)
+findProcUnsafe dom name = let Just p = findProc dom name in p
 
 data Struct = 
   Struct 

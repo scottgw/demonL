@@ -49,7 +49,9 @@ unmodifiedMap types proc =
      go (Access e attr _) modMap = updateModified modMap e attr
      go (UnOpExpr _ e _) modMap = go e modMap
      go (BinOpExpr _ e1 e2 _) modMap = go e2 (go e1 modMap)
-     go e _ = error $ show e
+     go (Call n args t) modMap = foldr go modMap args
+     go (LitNull _) modMap = modMap
+     go e _ = error $ "Frame error: " ++ show e
  in foldr go typesToMap (clauseExprs $ prcdEns proc) 
 \end{code}
 
