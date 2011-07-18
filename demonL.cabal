@@ -54,7 +54,7 @@ Executable demonL
     mtl,
     transformers,
     bytestring,
-    base,
+    base >= 4,
     haskell98,
     time,
     yices

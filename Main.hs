@@ -40,7 +40,8 @@ generateDomain dom fileName = writeYices fileName (procDom dom)
 generateGoal dom goal fileName = writeYices fileName (goalSetup dom goal)
  
 interpResult (Sat exprs) dom goal =
-  putStrLn $ generateScript goal dom exprs
+  putStrLn (unlines $ map show exprs) >> 
+  putStrLn (generateScript goal dom exprs)
 interpResult (UnSat _) _ _ = putStrLn "Unsat"
 interpResult (Unknown _) _ _  = putStrLn "Unknown"
 interpResult (InCon ss) _ _ = mapM_ putStrLn ss
@@ -54,11 +55,18 @@ runCommands dCmds gCmds dom goal = do
   runCmdsY' yPipe gCmds
   
   searchUpTo yPipe (goalSteps goal) dom goal
+  -- searchAll yPipe (goalSteps goal) dom goal
     
   t2 <- getCurrentTime
   let diff = diffUTCTime t2 t1
   print diff
 
+searchAll yPipe maxSteps dom goal = do
+  runCmdsY' yPipe (map goalAction [0 .. maxSteps - 1])
+  runCmdsY' yPipe [goalAssert dom goal maxSteps]
+  res <- checkY yPipe
+  interpResult res dom goal
+  
 searchUpTo yPipe maxSteps dom goal = 
   let run1 = runCmdsY' yPipe . (:[])
       push = run1 PUSH
@@ -74,5 +82,8 @@ searchUpTo yPipe maxSteps dom goal =
           case res of 
             Sat exprs  -> putStrLn (unlines $ map show exprs) >> 
                           putStrLn (generateScript goal dom exprs)
+            Unknown exprs  -> putStrLn "Unknown" >>
+                              putStrLn (unlines $ map show exprs) >> 
+                              putStrLn (generateScript goal dom exprs)
             _          -> pop >> go (i+1)
   in go 0
