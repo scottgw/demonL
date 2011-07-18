@@ -21,9 +21,6 @@ Homepage:            http://se.inf.ethz.ch/people/west
 -- The license under which the package is released.
 License:             BSD3
 
--- The file containing the license text.
-License-file:        LICENSE
-
 -- The package author(s).
 Author:              Scott West
 
