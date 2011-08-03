@@ -153,7 +153,7 @@ funcExpr f =
     body   = LAMBDA [(idxStr, indexType)] posts
     posts  = 
       case map clauseExpr (prcdEns f) of
-        [BinOpExpr (RelOp Eq _) (ResultVar _) e _] -> exprY preIdx postIdx e
+        [BinOpExpr (RelOp Eq _) (ResultVar _) e _] -> exprY preIdx preIdx e
         ens -> error $ "Cannot process function ensures: " ++ show ens
   in LAMBDA (declsToArgsY (prcdArgs f)) body
 \end{code}
