@@ -93,7 +93,7 @@ argumentList = parens (decl `sepBy` comma)
 -- Domain description
 struct :: Parser Struct
 struct = reserved "type" *> 
-         (Struct <$> identifier <*> braces (many1 decl))
+         (Struct <$> identifier <*> braces (many decl))
 
 emptyDom = Domain [] [] []
 addStruct (Domain ss ps fs) s = Domain (s:ss) ps fs

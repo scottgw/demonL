@@ -28,6 +28,7 @@ main = do
          let debug = others == ["-d"] 
          eiDom  <- parseFromFile domain domainFileName
          eiGoal <- parseFromFile serialGoal goalFileName
+         
          case (eiDom, eiGoal) of
            (Right dom, Right goal) ->
                do dCmds  <- generateDomain dom domainFileName

@@ -121,7 +121,7 @@ actionBody additional pres posts =
     let 
         mapExpr next = map (exprY preIdx next)
         prePosts = mapExpr preIdx pres ++ mapExpr postIdx posts
-    in actionBodyLambda (AND $ prePosts ++ additional)
+    in actionBodyLambda (and' $ prePosts ++ additional)
 \end{code}
 
 \begin{code}
@@ -213,8 +213,10 @@ tagTypeStr = "proc_tag"
 \end{code}
 
 \begin{code}
-procTags procs = DEFTYP tagTypeStr (Just $ SCALAR tags)
-  where tags = map tagName procs
+procTags procs = DEFTYP tagTypeStr typedef
+  where typedef = case procs of
+          [] -> Nothing
+          ps -> Just $ SCALAR $ map tagName procs
 \end{code}
 
 \begin{code}
@@ -258,7 +260,7 @@ frameAllObjs (Struct name _) =
     typeEq         = VarE $ name ++ "_frame_single"
     singleFrame n  = APP typeEq [VarE n, excludePredE, preIdx]
     allFrames      = map singleFrame (allValsOf name)
-    frameLambda    = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
+    frameLambda    = LAMBDA [excludeDecl, idxDecl] (and' allFrames)
   in DEFINE (frameName, frameType) (Just frameLambda)
 \end{code}
 
@@ -269,7 +271,7 @@ allFrameTypes types =
     frameType   = ARR [excludeType, indexType, boolTypeY]
     typeFrame s = APP (VarE $ structName s ++ "_frame_all") [excludePredE, preIdx]
     allFrames  = map typeFrame types
-    lambda     = LAMBDA [excludeDecl, idxDecl] (AND allFrames)
+    lambda     = LAMBDA [excludeDecl, idxDecl] (and' allFrames)
   in DEFINE (frameName, frameType) (Just lambda)
 \end{code}
 
@@ -289,13 +291,12 @@ attrEq (Decl dn _) = exprY preIdx postIdx e
 \end{code}
 
 \begin{code}
-structEquals (Struct _ []) = error "structEquals: empty declarations"
 structEquals (Struct name decls) = 
   let
     typ = ARR [objType, indexType, boolTypeY]
     objType = VarT $ structStr name
     lam = LAMBDA [objDecl objType, idxDecl] lamExpr
-    lamExpr = AND $ map attrEq decls
+    lamExpr = and' $ map attrEq decls
   in DEFINE (name ++ "_eq", typ) (Just lam)
 \end{code}
 
@@ -313,7 +314,9 @@ listActionsTypes = [frameType, indexType, boolTypeY]
 \begin{code}
 actionOptions procs = 
   let actionsLambda = LAMBDA actionsDecls actionExprs
-      actionExprs = OR $ map runProc procs
+      actionExprs = if null procs
+                    then LitB True 
+                    else OR (map runProc procs)
       runProc p = APP (APP (VarE $ prcdName p) (argsFromArray (prcdArgs p))) 
                       [preIdx]
   in DEFINE ("actions", actionsType) (Just actionsLambda)

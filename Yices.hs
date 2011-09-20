@@ -74,11 +74,21 @@ declsToArgsY = concatMap declY
 
 clauseExprs = map clauseExpr
 
+and' [] = LitB True
+and' as = AND as
+
+or' [] = LitB False
+or' as = OR as
+
 allRefType = VarT allRefStr
 allRefStr = "ALL_ref"
-allType types = DEFTYP allRefStr (Just $ DATATYPE $ map mkTyCon types)
-  where mkTyCon typ = let n = structName typ
-                      in (allWrapStr n, [(allUnwrapStr n, VarT (structStr n))])
+allType types = DEFTYP allRefStr typedef
+  where 
+    typedef = case types of
+                [] -> Nothing
+                _  -> Just $ DATATYPE $ map mkTyCon types
+    mkTyCon typ = let n = structName typ
+                  in (allWrapStr n, [(allUnwrapStr n, VarT (structStr n))])
 allUnwrapStr str = structStr str ++ "_unwrap"
 allUnwrap str v = APP (VarE $ allUnwrapStr str) [v]
 allWrapStr str = structStr str ++ "_wrap"
