@@ -49,13 +49,12 @@ Executable demonL
 
   -- Packages needed in order to build this package.
   Build-depends: 
+    base,
     parsec,
     containers,
     mtl,
     transformers,
     bytestring,
-    base >= 4,
-    haskell98,
     time,
     yices
   

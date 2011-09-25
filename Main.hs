@@ -10,7 +10,7 @@ import Math.SMT.Yices.Pipe
 
 import Text.Parsec.ByteString
 
-import System
+import System.Environment
 
 import Goal
 import GoalSerial
