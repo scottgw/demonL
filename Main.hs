@@ -54,11 +54,27 @@ runCommands debug dCmds gCmds dom goal = do
   runCmdsY' yPipe dCmds
   runCmdsY' yPipe gCmds
   
-  searchUpTo debug yPipe (goalSteps goal) dom goal
+  found <- searchNone yPipe dom goal
+
   -- searchAll yPipe (goalSteps goal) dom goal
     
+  if found
+    then searchUpTo debug yPipe (goalSteps goal) dom goal
+    else putStrLn "Interference impossible"
+           
   t2 <- getCurrentTime
   when debug (print $ diffUTCTime t1 t1)
+
+searchNone yPipe dom goal = do
+  runCmdsY' yPipe [PUSH]
+  runCmdsY' yPipe [goalAssert dom goal 1]
+  res <- checkY yPipe
+  runCmdsY' yPipe [POP]
+  
+  return $ case res of
+    Sat _ -> True
+    Unknown _ -> True
+    _ -> False
 
 searchAll yPipe maxSteps dom goal = do
   runCmdsY' yPipe (map goalAction [0 .. maxSteps - 1])
