@@ -84,6 +84,7 @@ data Expr =
   | Var String
   | ResultVar
   | Cast Type Expr
+  | ForAll [String] Expr
   | LitInt Int
   | LitBool Bool
   | LitDouble Double
@@ -98,6 +99,8 @@ instance Show Expr where
     show (UnOpExpr op e) = show op ++ " (" ++ show e ++ ")"
     show (Access e f)  = show e ++ "." ++ f
     show (Var s)       = s
+    show (ForAll idents e) = 
+      "forall, " ++ intercalate "," idents ++ " " ++ show e
     show ResultVar     = "Result"
     show (Cast t e)    = "{" ++ show t ++ "}" ++ show e
     show (LitInt i)    = show i
