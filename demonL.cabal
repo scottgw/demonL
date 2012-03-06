@@ -83,6 +83,7 @@ Library
     yices
 
   Exposed-modules:
+    Language.DemonL.Types,
     Language.DemonL.AST,
     Language.DemonL.Parser
 
@@ -92,7 +93,6 @@ Library
     Language.DemonL.Yices,
     Language.DemonL.YicesDomain,
     Language.DemonL.TypeCheck,
-    Language.DemonL.Types,
     Language.DemonL.GoalSerial,
     Language.DemonL.Goal,
     Language.DemonL.Frame
