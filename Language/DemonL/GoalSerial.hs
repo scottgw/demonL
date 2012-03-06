@@ -2,12 +2,12 @@ module Language.DemonL.GoalSerial where
 
 import Math.SMT.Yices.Syntax
 
-import Yices
-import qualified AST as A
-import AST (DomainU, Domain (..), Decl (..), declsToMap)
-import TypeCheck
-import Goal as G
-import Types
+import Language.DemonL.Yices
+import qualified Language.DemonL.AST as A
+import Language.DemonL.AST (DomainU, Domain (..), Decl (..), declsToMap)
+import Language.DemonL.TypeCheck
+import Language.DemonL.Goal as G
+import Language.DemonL.Types
 
 goalSetup :: DomainU -> SerialGoal -> [CmdY]
 goalSetup dom goal = concat [ goalDefs goal

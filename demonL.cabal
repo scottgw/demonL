@@ -45,7 +45,7 @@ Cabal-version:       >=1.2
 
 Executable demonL
   -- .hs or .lhs file containing the Main module.
-  Main-is: Main.hs
+  Main-is: Language/DemonL/Main.hs
 
   -- Packages needed in order to build this package.
   Build-depends: 
@@ -59,8 +59,40 @@ Executable demonL
     yices
   
   -- Modules not exported by this package.
-  -- Other-modules:       
-  
+  Other-modules:       
+    Language.DemonL.ParserBasic,
+    Language.DemonL.Script,
+    Language.DemonL.Yices,
+    Language.DemonL.YicesDomain,
+    Language.DemonL.TypeCheck,
+    Language.DemonL.Types,
+    Language.DemonL.GoalSerial,
+    Language.DemonL.Goal,
+    Language.DemonL.Frame 
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
-  
+Library
+  Build-Depends:
+    base,
+    parsec,
+    containers,
+    mtl,
+    transformers,
+    bytestring,
+    time,
+    yices
+
+  Exposed-modules:
+    Language.DemonL.AST,
+    Language.DemonL.Parser
+
+  Other-modules:
+    Language.DemonL.ParserBasic,
+    Language.DemonL.Script,
+    Language.DemonL.Yices,
+    Language.DemonL.YicesDomain,
+    Language.DemonL.TypeCheck,
+    Language.DemonL.Types,
+    Language.DemonL.GoalSerial,
+    Language.DemonL.Goal,
+    Language.DemonL.Frame

@@ -10,9 +10,9 @@ import qualified Data.Map as M
 
 import Math.SMT.Yices.Syntax
 
-import AST
-import Goal
-import TypeCheck (ProcedureT)
+import Language.DemonL.AST
+import Language.DemonL.Goal
+import Language.DemonL.TypeCheck (ProcedureT)
 
 generateScript goal dom goalExprs = 
     let actionMap = foldr inspectTag M.empty goalExprs
