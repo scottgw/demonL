@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Main where
+module Language.DemonL.Main where
 
 import Control.Monad (when)
 
@@ -12,12 +12,12 @@ import Text.Parsec.ByteString
 
 import System.Environment
 
-import Goal
-import GoalSerial
-import Parser (serialGoal, domain)
-import Script (generateScript)
-import YicesDomain (procDom)
-import Yices
+import Language.DemonL.Goal
+import Language.DemonL.GoalSerial
+import Language.DemonL.Parser (serialGoal, domain)
+import Language.DemonL.Script (generateScript)
+import Language.DemonL.YicesDomain (procDom)
+import Language.DemonL.Yices
 
 main = do
   args <- getArgs

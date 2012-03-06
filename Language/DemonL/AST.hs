@@ -1,8 +1,9 @@
-module AST where
+module Language.DemonL.AST where
 
 import Data.List (intercalate, find)
 import qualified Data.Map as M
-import Types
+
+import Language.DemonL.Types
 
 data Decl = Decl 
     { declName :: String,

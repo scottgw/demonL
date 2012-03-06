@@ -1,9 +1,9 @@
-module Types where
+module Language.DemonL.Types where
 
 import Text.Parsec
 import Text.Parsec.ByteString
 
-import ParserBasic
+import Language.DemonL.ParserBasic
 
 data Type = StructType String [Type]
           | IntType

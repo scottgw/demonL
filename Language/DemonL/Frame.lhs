@@ -1,15 +1,15 @@
 \begin{code}
-module Frame (actionFrame) where
+module Language.DemonL.Frame (actionFrame) where
 
 import Data.List
 import qualified Data.Map as M
 
 import Math.SMT.Yices.Syntax
 
-import AST hiding (Expr (..))
-import Types
-import TypeCheck
-import Yices
+import Language.DemonL.AST hiding (Expr (..))
+import Language.DemonL.Types
+import Language.DemonL.TypeCheck
+import Language.DemonL.Yices
 
 \end{code}
 

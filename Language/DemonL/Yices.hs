@@ -1,10 +1,10 @@
-module Yices where
+module Language.DemonL.Yices where
 
 import Math.SMT.Yices.Syntax
 
-import Types
-import AST hiding (Expr (..))
-import TypeCheck
+import Language.DemonL.Types
+import Language.DemonL.AST hiding (Expr (..))
+import Language.DemonL.TypeCheck
 
 -- Type conversion
 basicTypeY :: Type -> TypY

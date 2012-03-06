@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module Script where
+module Language.DemonL.Script where
 
 import Control.Applicative
 import Control.Monad

@@ -1,4 +1,4 @@
-module GoalSerial where
+module Language.DemonL.GoalSerial where
 
 import Math.SMT.Yices.Syntax
 

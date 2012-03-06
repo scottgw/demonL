@@ -1,4 +1,4 @@
-module TypeCheck where
+module Language.DemonL.TypeCheck where
 
 import Control.Applicative
 import Control.Monad
@@ -8,10 +8,11 @@ import Data.Functor.Identity
 import Data.List
 import qualified Data.Map as M
 
-import qualified AST as A
-import AST (Struct (..), ProcedureU, Procedure (..), Clause (..), declsToMap,
+import qualified Language.DemonL.AST as A
+import Language.DemonL.AST 
+            (Struct (..), ProcedureU, Procedure (..), Clause (..), declsToMap,
             Domain (..), DomainU, BinOp (..), UnOp (..), ROp (..), Decl (..))
-import Types
+import Language.DemonL.Types
 
 type TypeM a = ErrorT String Identity a
 

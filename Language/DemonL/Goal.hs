@@ -1,6 +1,6 @@
-module Goal where
+module Language.DemonL.Goal where
 
-import AST
+import Language.DemonL.AST
 
 data SerialGoal = 
   SerialGoal 

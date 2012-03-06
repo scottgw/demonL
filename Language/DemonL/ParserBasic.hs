@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module ParserBasic (comma, reserved, identifier, squares, braces, reservedOp, parens, dot, integer, colon, whiteSpace) where
+module Language.DemonL.ParserBasic (comma, reserved, identifier, squares, braces, reservedOp, parens, dot, integer, colon, whiteSpace) where
 
 import Control.Monad.Identity
 

@@ -5,7 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE OverloadedStrings, TupleSections #-}
-module YicesDomain (procDom) where
+module Language.DemonL.YicesDomain (procDom) where
 
 import Control.Applicative
 
@@ -13,12 +13,12 @@ import Math.SMT.Yices.Syntax
 
 import Text.Parsec.ByteString
 
-import AST hiding (Expr (..))
-import Frame
-import Parser
-import Types
-import TypeCheck
-import Yices
+import Language.DemonL.AST hiding (Expr (..))
+import Language.DemonL.Frame
+import Language.DemonL.Parser
+import Language.DemonL.Types
+import Language.DemonL.TypeCheck
+import Language.DemonL.Yices
 \end{code}
 
 The procedure tags (allowing us to track which actions were used)

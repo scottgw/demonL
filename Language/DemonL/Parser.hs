@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Parser (domain, serialGoal, expr) where
+module Language.DemonL.Parser (domain, serialGoal, expr) where
 
 import Control.Applicative hiding ((<|>), optional, many)
 
@@ -7,10 +7,10 @@ import Text.Parsec
 import Text.Parsec.Expr
 import Text.Parsec.ByteString
 
-import AST
-import Goal
-import ParserBasic
-import Types
+import Language.DemonL.AST
+import Language.DemonL.Goal
+import Language.DemonL.ParserBasic
+import Language.DemonL.Types
 
 expr :: Parser Expr
 expr = buildExpressionParser table factor
