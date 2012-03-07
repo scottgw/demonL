@@ -62,7 +62,7 @@ data BinOp = Add
            | Implies
            | ArrayIndex
            | RelOp ROp Type
-             deriving (Show, Eq)
+             deriving Eq
 
 data ROp = Lte
          | Lt 
@@ -70,12 +70,12 @@ data ROp = Lte
          | Neq
          | Gt 
          | Gte
-           deriving (Show, Eq)
+           deriving Eq
 
 data UnOp = Not
           | Neg
           | Old
-            deriving (Show, Eq)
+            deriving Eq
 
 data Expr =
     Call String [Expr]
@@ -91,6 +91,29 @@ data Expr =
   | LitDouble Double
   | LitNull
   deriving Eq
+
+instance Show BinOp where
+  show Add = "+"
+  show Sub = "-"
+  show Mul = "*"
+  show Div = "/"
+  show Or  = "or"
+  show And = "and"
+  show Implies = "implies"
+  show (RelOp op _) = show op
+  
+instance Show ROp where
+  show Lte = "<="
+  show Lt  = "<"
+  show Eq  = "="
+  show Neq = "/="
+  show Gt  = ">"
+  show Gte = ">="
+
+instance Show UnOp where
+  show Old = "old"
+  show Neg = "-"
+  show Not = "not"
 
 instance Show Expr where
     show (Call s args) 
