@@ -1,0 +1,6 @@
+f (x: Int, y: Int): Int
+  require
+    pre: x > y
+  ensure
+    post: Result > x + y
+
