@@ -22,7 +22,7 @@ import Language.DemonL.Yices
 main = do
   args <- getArgs
   if length args < 2 
-    then putStrLn "Usage: demonL domain serialization [-d]"
+    then putStrLn "Usage: demonL domain goal [-d]"
     else 
       do let (domainFileName:goalFileName:others) = args
          let debug = others == ["-d"] 
