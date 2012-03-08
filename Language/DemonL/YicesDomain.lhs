@@ -5,7 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE OverloadedStrings, TupleSections #-}
-module Language.DemonL.YicesDomain (procDom) where
+module Language.DemonL.YicesDomain (procDom, funcAssertion) where
 
 import Control.Applicative
 
@@ -99,7 +99,7 @@ procDom untypedDom  =
                             , attrFunctions types
                             , equalityFunctions types
                             , frames types
-                            , functions funcs
+                            , functionByAssert funcs
                             , actions types procs
                             ]) 
               eiDom
@@ -157,6 +157,34 @@ funcExpr f =
         ens -> error $ "Cannot process function ensures: " ++ show ens
   in LAMBDA (declsToArgsY (prcdArgs f)) body
 \end{code}
+
+
+Use a forall expression to denote the behaviour of a function.
+This can be used for attributes as well, as they have trivial
+pre- and postconditions (true).
+\begin{code}
+funcAssertion f =   
+  let
+    declToVar (Decl n t) = Var n t
+    argList = map (\ (Decl n t) -> (n, basicTypeY t)) (prcdArgs f)
+    newResult = Call (prcdName f) (map declToVar (prcdArgs f)) (prcdResult f)
+    resultReplace = replace (ResultVar (prcdResult f)) newResult
+    pre  = and' (map (exprY preIdx preIdx . clauseExpr) (prcdReq f))
+    post = and' (map (exprY preIdx preIdx . resultReplace . clauseExpr) (prcdEns f))
+    body = pre :=> post
+  in FORALL ((idxStr, indexType) :  argList) body
+\end{code}
+
+This then has to be used in an `assert' to ensure the proper behaviour
+of the function. This is likely to induce the SMT solver to
+give ``unknown'' as an answer, but we can overlook that for now.
+\begin{code}
+functionByAssert fs = 
+  let functionDecl f = DEFINE (prcdName f, procYicesType f) Nothing
+      function f = ASSERT (funcAssertion f)
+  in map functionDecl fs ++ map function fs
+\end{code}
+
 
 \begin{code}
 attrType :: String -> Type -> TypY

@@ -35,6 +35,17 @@ exprY _ _ (LitBool b) = LitB b
 exprY _ _ (LitDouble d) = LitR (toRational d)
 exprY _ _ (LitNull t) = nullValue t
 
+
+replace old new = go
+  where
+    rep = replace old new
+    go e | e == old = new
+    go (Call name args t) = Call name (map rep args) t
+    go (BinOpExpr bop e1 e2 t) = BinOpExpr bop (rep e1) (rep e2) t
+    go (UnOpExpr uop e t) = UnOpExpr uop (rep e) t
+    go (Access e f t) = Access (rep e) f t
+    go e = e
+
 nullValue (StructType n _) = VarE $ nullStr n
 nullStr n = "null_" ++ n
 
