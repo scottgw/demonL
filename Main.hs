@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Language.DemonL.Main where
+module Main where
 
 import Control.Monad (when)
 
