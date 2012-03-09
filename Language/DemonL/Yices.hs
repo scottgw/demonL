@@ -20,15 +20,31 @@ boolTypeY = VarT "bool"
 
 structStr n = n ++ "_ref"
 
+newtype TimeContext = TC ExpY
+
+funcIdxParam = "idx"
+
+timeCtx :: Integer -> TimeContext
+timeCtx i = TC $ APP timeState [LitI $ fromIntegral i]
+
+timeState = VarE "query_context"
+
+thisTimeRec = APP timeState [VarE funcIdxParam]
+
+thisTime = TC $ APP timeState [VarE funcIdxParam]
+nextTime = TC $ APP timeState [VarE funcIdxParam :+: LitI 1]
+
+selectFunc :: TimeContext -> String -> ExpY
+selectFunc (TC t) = SELECT_R t
+
 -- Expression conversion
-exprY :: ExpY -> ExpY -> TExpr -> ExpY
+exprY :: TimeContext -> TimeContext -> TExpr -> ExpY
 exprY pre post (Call name args t) = 
-    APP (APP (VarE name) (map (exprY pre post) args)) [post]
+  APP (selectFunc post name) (map (exprY pre post) args)
 exprY pre post (BinOpExpr bop e1 e2 t) = 
     binYices bop (exprY pre post e1) (exprY pre post e2)
 exprY pre post (UnOpExpr uop e t) = unaryYices uop pre post e
-exprY pre post (Access e f t) = 
-  APP (VarE f) [exprY pre post e, post]
+exprY pre post (Access e f t) = exprY pre post (Call f [e] t)
 exprY _ _ (Var v t) = VarE v
 exprY _ _ (LitInt int) = LitI (fromIntegral int)
 exprY _ _ (LitBool b) = LitB b

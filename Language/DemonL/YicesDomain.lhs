@@ -5,17 +5,13 @@
 
 \begin{code}
 {-# LANGUAGE OverloadedStrings, TupleSections #-}
-module Language.DemonL.YicesDomain (procDom, funcAssertion) where
+module Language.DemonL.YicesDomain (procDom) where
 
-import Control.Applicative
+import Data.List
 
 import Math.SMT.Yices.Syntax
 
-import Text.Parsec.ByteString
-
 import Language.DemonL.AST hiding (Expr (..))
-import Language.DemonL.Frame
-import Language.DemonL.Parser
 import Language.DemonL.Types
 import Language.DemonL.TypeCheck
 import Language.DemonL.Yices
@@ -30,48 +26,12 @@ The reference type declarations also require the generation of the
 ``top'' type which can be any of the reference types.
 For simplicity, we also generate the argument array definitions as well.
 \begin{code}
-tagsAndTypes (Domain types procs funcs) = procTagsAndArray ++ refDefines
+tagsAndTypes types procs = procTagsAndArray ++ refDefines
     where
       procTagsAndArray  =  [procTags procs, tagArray]
-      refDefines        =  map structConvY types ++ 
-                           [allType types] ++ 
-                           argArrayDefines types
-\end{code}
-Next, the two framing types can be defined.
-The first is an exclusion predicate type which
-will tell if an element of the ``top'' type is to be
-excluded from a full frame-check.
-In other words it says if a reference is mutable.
-
-The second frame type is a predicate which will take an
-exclusion predicate and a state and ... 
-\begin{code}
-frameCmds = [excludeTypeDecl, frameTypeDecl]
-\end{code}
-Now the datatypes can be described in terms of their
-component parts.
-The types are essentially labelled records,
-so we translate their values over time to 
-functions of the data structure indexed by time.
-\begin{code}
-attrFunctions types = concatMap attrConvY types
+      refDefines        =  allType types : argArrayDefines types
 \end{code}
 
-Additionally, now that the types can be queried and described,
-they can be tested for structural equality.
-
-\begin{code}
-equalityFunctions types = map structEquals types
-\end{code}
-The generation of the frames are then fairly straight-forward.
-The frame predicates for a type are divided into two pieces,
-one half handles the frame for a single reference,
-the other maintains that the frame for all references of a type
-are maintained at any given time.
-\begin{code}
-frames types = concatMap bothFrames types ++ [allFrameTypes types]
-  where bothFrames t = [frameSingle t ,frameAllObjs t]
-\end{code}
 The actions that are generated from procedures have to main components:
 \begin{itemize}
 \item The actions themselves, incorporating the state-change semantics and
@@ -80,7 +40,7 @@ The actions that are generated from procedures have to main components:
   time index.
 \end{itemize}
 \begin{code}
-actions types procs = map (procConvY types) procs ++ [actionOptions procs]
+actions procs = map procConvY procs ++ [actionOptions procs]
 \end{code}
 
 Finally, the generation of the Yices statements above can be
@@ -94,18 +54,13 @@ procDom untypedDom  =
     let eiDom = runTypeM $ typecheckDomain untypedDom
     in case eiDom of
       Left errStr -> error $ "Error typechecking domain: " ++ errStr
-      Right d ->
-        let Domain types procs funcs = d
-        in concat  [ tagsAndTypes d 
-                   , frameCmds
-                   , attrFunctions types
-                   , equalityFunctions types
-                   , frames types
-                   , functionByAssert funcs
-                   , actions types procs
-                   ]
+      Right (Domain types procs funcs) ->
+         concat  [ tagsAndTypes types procs
+                 , [timedContext types funcs]
+                 , functionByAssert funcs
+                 , actions procs
+                 ]
 \end{code}
-
 
 Action Creation
 
@@ -120,9 +75,10 @@ actionType = indexedResult BoolType
 actionBody :: [ExpY] -> [TExpr] -> [TExpr] -> ExpY
 actionBody additional pres posts =
     let 
-        mapExpr next = map (exprY preIdx next)
-        prePosts = mapExpr preIdx pres ++ mapExpr postIdx posts
-    in actionBodyLambda (and' $ prePosts ++ additional)
+        ctx0 = LET [(("ctx_0", Nothing), thisTimeRec)]
+        mapExpr next = map (exprY thisTime next)
+        prePosts = mapExpr thisTime pres ++ map buildPost posts
+    in actionBodyLambda $ ctx0 $ and' $ prePosts ++ additional
 \end{code}
 
 \begin{code}
@@ -130,33 +86,96 @@ actionBodyLambda = LAMBDA [(idxStr, indexType)]
 \end{code}
 
 \begin{code}
-actionExpr :: [Struct] -> ProcedureT -> ExpY
-actionExpr types proc =
+actionExpr :: ProcedureT -> ExpY
+actionExpr proc =
   let
     pres   = clauseExprs (prcdReq proc)
     posts  = clauseExprs (prcdEns proc)
-    frame  = actionFrame types proc
     tag    = APP (VarE "tag_array") [preIdx] := VarE (tagName proc)
-    body   = actionBody [frame, tag] pres posts
+    body   = actionBody [tag] pres posts
   in LAMBDA (declsToArgsY (prcdArgs proc)) body
 \end{code}
 
 \begin{code}
-functions fs = 
-  let functionDecl f = DEFINE (prcdName f, procYicesType f) Nothing
-      function f = ASSERT (VarE (prcdName f) := funcExpr f)
-  in map functionDecl fs ++ map function fs
-\end{code}
+buildPost :: TExpr -> ExpY
+buildPost e =
+  let ((i, f), e') = buildQueryEnv 0 e
+  in f (e' i)
 
-\begin{code}
-funcExpr f = 
+buildQueryEnv :: Int -> TExpr -> ((Int, ExpY -> ExpY), Int -> ExpY)
+buildQueryEnv i = go
+  where
+    noMod i e = ((i, id), const e)
+    
+    go (LitNull t)    = noMod i $ nullValue t
+    go (LitDouble d)  = noMod i $ LitR (toRational d)
+    go (LitBool b)    = noMod i $ LitB b
+    go (LitInt int)   = noMod i $ LitI (fromIntegral int)
+    go (Var v t)      = noMod i $ VarE v
+    go (Access e f t) = buildQueryEnv i (Call f [e] t)
+    go (BinOpExpr bop e1 e2 t) =
+      let ((q1, ctx1), e1') = buildQueryEnv i e1
+          ((q2, ctx2), e2') = buildQueryEnv q1 e2
+          ctx' = ctx1 . ctx2
+      in ( (q2, ctx'),\x -> binYices bop (e1' x) (e2' x))
+    go (UnOpExpr Old e t) = noMod i $ exprY thisTime thisTime e
+    go (UnOpExpr uop e t) =
+      let ((i', ctx), e') = buildQueryEnv i e          
+      in ( (i', ctx), \x -> unary uop (e' x))
+    go (Call name args t) =
+      let f (queryState, ctx) e = 
+            let ((queryState', ctx'), e') = buildQueryEnv queryState e
+            in ((queryState', ctx . ctx'), e')
+
+          ((i', ctx'), args') = mapAccumL f (i, id) args
+          
+          freshI = i' + 1
+          
+          ctxVar = VarE . ctxName
+          ctxName x = "ctx_" ++ show x
+          
+          exResult x = "ex_" ++ name ++ "_" ++ show x
+          
+          argsAt as x = map ($ x) as
+          
+          getFunc x = SELECT_R (ctxVar x)
+          updateFunc = UPDATE_F (getFunc freshI name)
+                                (argsAt args' i') 
+                                (VarE $ exResult freshI)
+          updated = UPDATE_R (ctxVar i') name updateFunc
+          mkCtx e = 
+            EXISTS [(exResult freshI, basicTypeY t)]
+                   (LET [((ctxName freshI, Nothing), updated)] e)
+                                    
+      in ((freshI, ctx' . mkCtx), \x -> APP (getFunc x name) (argsAt args' x))
+
+unary Not = NOT 
+unary Neg = (LitI 0 :-:)
+
+
+exampleExpr = 
+  BinOpExpr (RelOp Lt NoType) ex2 (LitInt 6) BoolType
+    
+ex2 = 
+  let g = Call "g" [Var "this" IntType] IntType
+  in Call "f" [g, UnOpExpr Old g IntType] IntType
+
+timedContext types funcs =
   let 
-    body   = LAMBDA [(idxStr, indexType)] posts
-    posts  = 
-      case map clauseExpr (prcdEns f) of
-        [BinOpExpr (RelOp Eq _) (ResultVar _) e _] -> exprY preIdx preIdx e
-        ens -> error $ "Cannot process function ensures: " ++ show ens
-  in LAMBDA (declsToArgsY (prcdArgs f)) body
+    allFuncs :: [(String, TypY)]
+    allFuncs = concatMap structFuncs types ++ map funcFuncs funcs
+      
+    funcFuncs (Procedure name args res _ _) =
+      (name, ARR $ map (basicTypeY . declType) args ++ [basicTypeY res])
+      
+    structFuncs (Struct name decls) = map (declFunc name) decls
+    declFunc typeName (Decl name typ) = (name, attrType typeName typ)
+    attrType typeName typ = ARR [ basicTypeY (StructType typeName [])
+                                , basicTypeY typ]
+  in DEFINE ("query_context", ARR [intTypeY, REC allFuncs]) Nothing
+
+  
+
 \end{code}
 %
 Use a forall expression to denote the behaviour of a function.
@@ -169,8 +188,8 @@ funcAssertion f =
     argList = map (\ (Decl n t) -> (n, basicTypeY t)) (prcdArgs f)
     newResult = Call (prcdName f) (map declToVar (prcdArgs f)) (prcdResult f)
     resultReplace = replace (ResultVar (prcdResult f)) newResult
-    pre  = and' (map (exprY preIdx preIdx . clauseExpr) (prcdReq f))
-    post = and' (map (exprY preIdx preIdx . resultReplace . clauseExpr) (prcdEns f))
+    pre  = and' (map (exprY thisTime thisTime . clauseExpr) (prcdReq f))
+    post = and' (map (exprY thisTime thisTime . resultReplace . clauseExpr) (prcdEns f))
     body = pre :=> post
   in FORALL ((idxStr, indexType) :  argList) body
 \end{code}
@@ -180,18 +199,8 @@ of the function. This is likely to induce the SMT solver to
 give ``unknown'' as an answer, but we can overlook that for now.
 \begin{code}
 functionByAssert fs = 
-  let functionDecl f = DEFINE (prcdName f, procYicesType f) Nothing
-      function f = ASSERT (funcAssertion f)
-  in map functionDecl fs ++ map function fs
-\end{code}
-
-
-\begin{code}
-attrType :: String -> Type -> TypY
-attrType structType resultType = 
-    ARR  [ basicTypeY (StructType structType [])
-         , indexType, 
-           basicTypeY resultType]
+  let function f = ASSERT (funcAssertion f)
+  in map function fs
 \end{code}
 
 \begin{code}
@@ -204,9 +213,9 @@ procYicesType (Procedure {prcdArgs = args, prcdResult = resultType}) =
 \end{code}
 
 \begin{code}
-procConvY :: [Struct] -> ProcedureT -> CmdY
-procConvY types proc =
-  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr types proc)
+procConvY :: ProcedureT -> CmdY
+procConvY proc =
+  DEFINE (prcdName proc, procYicesType proc) (Just $ actionExpr proc)
 \end{code}
 
 \begin{code}
@@ -215,28 +224,7 @@ maxObjs = 4
 \end{code}
 
 \begin{code}
-idxRefObj nm i = nm ++ "_obj" ++ show i
-allValsOf str = nullStr str :  map (idxRefObj str) [1..maxObjs]
-\end{code}
-
-\begin{code}
-structConvY (Struct name _) = DEFTYP (structStr name) (Just $ SCALAR objs)
-    where objs = nullStr name : map (idxRefObj name) [1 .. maxObjs]
-\end{code}
-
-\begin{code}
-attrConvY (Struct name decls) = map (declToFunction name) decls
-\end{code}
-
-\begin{code}
-declToFunction :: String -> Decl -> CmdY
-declToFunction typeName (Decl name resultType) =
-  DEFINE (name, attrType typeName resultType) Nothing
-\end{code}
-
-\begin{code}
 tagName p = prcdName p ++ "_tag"
-tagType = VarT tagTypeStr
 tagTypeStr = "proc_tag"
 \end{code}
 
@@ -244,99 +232,20 @@ tagTypeStr = "proc_tag"
 procTags procs = DEFTYP tagTypeStr typedef
   where typedef = case procs of
           [] -> Nothing
-          ps -> Just $ SCALAR $ map tagName procs
+          _ -> Just $ SCALAR $ map tagName procs
 \end{code}
 
 \begin{code}
-excludeTypeDecl = DEFTYP "exclude_type" (Just $ ARR [allRefType, indexType, boolTypeY])
 tagArray = DEFINE ("tag_array", ARR [indexType, VarT "proc_tag"]) 
                   Nothing
 \end{code}
-Frame conditions
 
-\begin{code}
-excludeType    = VarT "exclude_type"
-excludePredE   = VarE excludePredStr
-excludePredStr = "exclude_pred"
-excludeDecl    = (excludePredStr, excludeType)
-\end{code}
-
-\begin{code}
-frameType = VarT frameTypeStr
-frameTypeStr = "frame_type"
-frameTypeDecl = DEFTYP frameTypeStr 
-                (Just $ ARR [excludeType, indexType, boolTypeY])
-\end{code}
-
-\begin{code}
-frameSingle (Struct name _) =
-  let
-    frameName   = name ++ "_frame_single"
-    objType     = VarT $ structStr name
-    singleType  = ARR [objType, excludeType, indexType, boolTypeY]
-    eq          = APP (VarE $ name ++ "_eq") [objY, preIdx]
-    guardFrame  = (NOT $ APP (VarE excludePredStr) [allWrap name objY, preIdx]) :=> eq
-    lambda      = LAMBDA [("obj", objType) , excludeDecl, idxDecl] guardFrame
-  in DEFINE (frameName, singleType) (Just lambda)
-\end{code}
-
-\begin{code}
-frameAllObjs (Struct name _) =
-  let
-    frameName      = name ++ "_frame_all"
-    frameType      = ARR [excludeType, indexType, boolTypeY]
-    typeEq         = VarE $ name ++ "_frame_single"
-    singleFrame n  = APP typeEq [VarE n, excludePredE, preIdx]
-    allFrames      = map singleFrame (allValsOf name)
-    frameLambda    = LAMBDA [excludeDecl, idxDecl] (and' allFrames)
-  in DEFINE (frameName, frameType) (Just frameLambda)
-\end{code}
-
-\begin{code}
-allFrameTypes types = 
-  let
-    frameName   = "all-frames"
-    frameType   = ARR [excludeType, indexType, boolTypeY]
-    typeFrame s = APP (VarE $ structName s ++ "_frame_all") [excludePredE, preIdx]
-    allFrames  = map typeFrame types
-    lambda     = LAMBDA [excludeDecl, idxDecl] (and' allFrames)
-  in DEFINE (frameName, frameType) (Just lambda)
-\end{code}
-
-\begin{code}
-obj = Var "obj" NoType
-objDecl t = ("obj", t)
-\end{code}
-
-\begin{code}
-attrEq (Decl dn _) = exprY preIdx postIdx e
-  where 
-    acc e = Access obj e NoType
-    e = BinOpExpr (RelOp Eq NoType) 
-                  (acc dn) 
-                  (UnOpExpr Old (acc dn) NoType) 
-                  NoType
-\end{code}
-
-\begin{code}
-structEquals (Struct name decls) = 
-  let
-    typ = ARR [objType, indexType, boolTypeY]
-    objType = VarT $ structStr name
-    lam = LAMBDA [objDecl objType, idxDecl] lamExpr
-    lamExpr = and' $ map attrEq decls
-  in DEFINE (name ++ "_eq", typ) (Just lam)
-\end{code}
-
-\begin{code}
-parseErrorStr fn = (++) ("Error parsing demonic domain: " ++ fn ++ "\n")
-\end{code}
 Group action definition
 
 \begin{code}
-actionsDecls = zip ["frm", "idx"] listActionsTypes
+actionsDecls = zip ["idx"] listActionsTypes
 actionsType = ARR listActionsTypes
-listActionsTypes = [frameType, indexType, boolTypeY]
+listActionsTypes = [indexType, boolTypeY]
 \end{code}
 
 \begin{code}

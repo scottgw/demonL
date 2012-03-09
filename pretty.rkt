@@ -1,4 +1,4 @@
-#! env racket
+#!/usr/bin/env racket
 
 #lang racket
 

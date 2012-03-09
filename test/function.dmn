@@ -4,3 +4,9 @@ f (x: Int, y: Int): Int
   ensure
     post: Result > x + y
 
+
+foo (x: Int)
+  require
+    pre: x > 2
+  ensure
+    post: f (x+1, x) < 10 

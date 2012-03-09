@@ -14,18 +14,15 @@ goalSetup dom goal = concat [ goalDefs goal
                             , goalInitState dom goal
                             ]
 
-goalAction i = 
-  let act = APP (VarE "actions") [exc, LitI i]
-      exc = VarE "all-frames"
-  in ASSERT act
+goalAction i = ASSERT $ APP (VarE "actions") [LitI i]
 
 goalDefs = map typeDefinition . declsToArgsY . vars
   where typeDefinition = flip DEFINE Nothing
 
 goalInitState dom goal = map (assignmentExprs dom (vars goal)) (values goal)
 
-exprYbefore = exprY (LitI 0) (LitI 0)
-exprYgoal step = exprY (LitI 0) (LitI step)
+exprYbefore = exprY (timeCtx 0) (timeCtx 0)
+exprYgoal step = exprY (timeCtx 0) (timeCtx step)
 
 
 assignmentExprs :: DomainU -> [Decl] -> A.Expr -> CmdY
