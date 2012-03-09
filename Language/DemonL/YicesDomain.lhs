@@ -93,8 +93,8 @@ procDom :: DomainU -> [CmdY]
 procDom untypedDom  = 
     let eiDom = runTypeM $ typecheckDomain untypedDom
     in case eiDom of
-      Left errStr = error $ "Error typechecking domain: " ++ errStr
-      Right d = 
+      Left errStr -> error $ "Error typechecking domain: " ++ errStr
+      Right d ->
         let Domain types procs funcs = d
         in concat  [ tagsAndTypes d 
                    , frameCmds
