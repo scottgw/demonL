@@ -92,17 +92,18 @@ a domain to a series of Yices commands.
 procDom :: DomainU -> [CmdY]
 procDom untypedDom  = 
     let eiDom = runTypeM $ typecheckDomain untypedDom
-    in either (error . ("Error typechecking domain: " ++))
-              ( \d@(Domain types procs funcs) ->
-                    concat  [ tagsAndTypes d 
-                            , frameCmds
-                            , attrFunctions types
-                            , equalityFunctions types
-                            , frames types
-                            , functionByAssert funcs
-                            , actions types procs
-                            ]) 
-              eiDom
+    in case eiDom of
+      Left errStr = error $ "Error typechecking domain: " ++ errStr
+      Right d = 
+        let Domain types procs funcs = d
+        in concat  [ tagsAndTypes d 
+                   , frameCmds
+                   , attrFunctions types
+                   , equalityFunctions types
+                   , frames types
+                   , functionByAssert funcs
+                   , actions types procs
+                   ]
 \end{code}
 
 
@@ -157,8 +158,7 @@ funcExpr f =
         ens -> error $ "Cannot process function ensures: " ++ show ens
   in LAMBDA (declsToArgsY (prcdArgs f)) body
 \end{code}
-
-
+%
 Use a forall expression to denote the behaviour of a function.
 This can be used for attributes as well, as they have trivial
 pre- and postconditions (true).
@@ -174,7 +174,7 @@ funcAssertion f =
     body = pre :=> post
   in FORALL ((idxStr, indexType) :  argList) body
 \end{code}
-
+%
 This then has to be used in an `assert' to ensure the proper behaviour
 of the function. This is likely to induce the SMT solver to
 give ``unknown'' as an answer, but we can overlook that for now.
