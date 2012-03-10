@@ -1,1 +1,5 @@
+my: MyType
+
+my.type_attr = 42
+
 @1 -> f (4, 5) < 8

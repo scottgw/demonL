@@ -1,3 +1,7 @@
+type MyType {
+  type_attr: Int
+}
+
 f (x: Int, y: Int): Int
   require
     pre: x > y
@@ -5,8 +9,8 @@ f (x: Int, y: Int): Int
     post: Result > x + y
 
 
-foo (x: Int)
+foo (m: MyType, x: Int)
   require
-    pre: x > 2
+    pre: x > 2 and m.type_attr = 42
   ensure
-    post: f (x+1, x) < 10 
+    post: f (x+1, x) < 10 and m.type_attr < 5 

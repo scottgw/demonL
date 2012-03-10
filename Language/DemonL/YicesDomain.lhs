@@ -28,8 +28,11 @@ For simplicity, we also generate the argument array definitions as well.
 \begin{code}
 tagsAndTypes types procs = procTagsAndArray ++ refDefines
     where
+      mkType (Struct n _) = 
+          let t = DATATYPE [(n ++ "_cons", [(n ++ "_id", intTypeY)])]
+          in DEFTYP (n ++ "_ref") (Just intTypeY)
       procTagsAndArray  =  [procTags procs, tagArray]
-      refDefines        =  allType types : argArrayDefines types
+      refDefines        =  map mkType types ++ allType types : argArrayDefines types
 \end{code}
 
 The actions that are generated from procedures have to main components:
@@ -100,7 +103,7 @@ actionExpr proc =
 buildPost :: TExpr -> ExpY
 buildPost e =
   let ((i, f), e') = buildQueryEnv 0 e
-  in f (e' i)
+  in f (AND [e' i, updateTimeCtx nextTime (VarE ("ctx_" ++ show i))])
 
 buildQueryEnv :: Int -> TExpr -> ((Int, ExpY -> ExpY), Int -> ExpY)
 buildQueryEnv i = go
@@ -139,7 +142,7 @@ buildQueryEnv i = go
           argsAt as x = map ($ x) as
           
           getFunc x = SELECT_R (ctxVar x)
-          updateFunc = UPDATE_F (getFunc freshI name)
+          updateFunc = UPDATE_F (getFunc i' name)
                                 (argsAt args' i') 
                                 (VarE $ exResult freshI)
           updated = UPDATE_R (ctxVar i') name updateFunc
@@ -151,14 +154,6 @@ buildQueryEnv i = go
 
 unary Not = NOT 
 unary Neg = (LitI 0 :-:)
-
-
-exampleExpr = 
-  BinOpExpr (RelOp Lt NoType) ex2 (LitInt 6) BoolType
-    
-ex2 = 
-  let g = Call "g" [Var "this" IntType] IntType
-  in Call "f" [g, UnOpExpr Old g IntType] IntType
 
 timedContext types funcs =
   let 
@@ -173,9 +168,6 @@ timedContext types funcs =
     attrType typeName typ = ARR [ basicTypeY (StructType typeName [])
                                 , basicTypeY typ]
   in DEFINE ("query_context", ARR [intTypeY, REC allFuncs]) Nothing
-
-  
-
 \end{code}
 %
 Use a forall expression to denote the behaviour of a function.

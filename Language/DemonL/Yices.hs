@@ -34,6 +34,8 @@ thisTimeRec = APP timeState [VarE funcIdxParam]
 thisTime = TC $ APP timeState [VarE funcIdxParam]
 nextTime = TC $ APP timeState [VarE funcIdxParam :+: LitI 1]
 
+updateTimeCtx (TC t) e = t := e
+
 selectFunc :: TimeContext -> String -> ExpY
 selectFunc (TC t) = SELECT_R t
 
