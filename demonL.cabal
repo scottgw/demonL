@@ -67,7 +67,7 @@ Executable demonL
     Language.DemonL.TypeCheck,
     Language.DemonL.Types,
     Language.DemonL.GoalSerial,
-    Language.DemonL.Goal,
+    Language.DemonL.Goal
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
 Library
@@ -93,4 +93,4 @@ Library
     Language.DemonL.YicesDomain,
     Language.DemonL.TypeCheck,
     Language.DemonL.GoalSerial,
-    Language.DemonL.Goal,
+    Language.DemonL.Goal
