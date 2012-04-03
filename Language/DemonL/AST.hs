@@ -86,7 +86,7 @@ data Expr =
   | ResultVar
   | Cast Type Expr
   | ForAll [String] Expr
-  | LitInt Int
+  | LitInt Integer
   | LitBool Bool
   | LitDouble Double
   | LitNull
