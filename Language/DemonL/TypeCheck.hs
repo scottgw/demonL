@@ -27,7 +27,7 @@ data TExpr =
   | Var String Type
   | ResultVar Type
   | Cast TExpr Type
-  | LitInt Int
+  | LitInt Integer
   | LitBool Bool
   | LitNull Type
   | LitDouble Double deriving (Show, Eq)
