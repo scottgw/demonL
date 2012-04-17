@@ -11,7 +11,7 @@ import qualified Data.Map as M
 import qualified Language.DemonL.AST as A
 import Language.DemonL.AST 
             (Struct (..), ProcedureU, Procedure (..), Clause (..), declsToMap,
-            Domain (..), DomainU, BinOp (..), UnOp (..), ROp (..), Decl (..))
+            Domain (..), DomainU, UnOp (..), ROp (..), Decl (..))
 import Language.DemonL.Types
 
 type TypeM a = ErrorT String Identity a
@@ -31,6 +31,28 @@ data TExpr =
   | LitBool Bool
   | LitNull Type
   | LitDouble Double deriving (Show, Eq)
+
+
+data BinOp = Add
+           | Sub
+           | Mul
+           | Div
+           | Or
+           | And
+           | Implies
+           | ArrayIndex
+           | RelOp ROp Type
+             deriving Eq
+
+instance Show BinOp where
+  show Add = "+"
+  show Sub = "-"
+  show Mul = "*"
+  show Div = "/"
+  show Or  = "or"
+  show And = "and"
+  show Implies = "implies"
+  show (RelOp op _) = show op
 
 runTypeM = runIdentity . runErrorT
 
@@ -132,33 +154,40 @@ typecheckExpr argMap dom resType =
       
       -- both equality and inequality are dealt with specially
       -- as they are needed to type `null' values.
-      tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull A.LitNull) = 
-        pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
-      tc (A.BinOpExpr bOp@(RelOp Eq _) A.LitNull e) =
+      tc (A.BinOpExpr (A.RelOp Eq) A.LitNull A.LitNull) = 
+        pure $ BinOpExpr (RelOp Eq VoidType) (LitNull VoidType) 
+                                             (LitNull VoidType) BoolType
+      tc (A.BinOpExpr (A.RelOp Eq) A.LitNull e) =
         let eM     = tc e
             nullM  = LitNull <$> (texprType <$> eM)
-        in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
-      tc (A.BinOpExpr bOp@(RelOp Eq _) e A.LitNull) =
+        in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM))
+                      <*> nullM <*> eM <*> pure BoolType
+      tc (A.BinOpExpr (A.RelOp Eq) e A.LitNull) =
         let eM     = tc e
             nullM  = LitNull <$> (texprType <$> eM)
-        in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+        in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM)) 
+                      <*> eM <*> nullM <*> pure BoolType
             
-      tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull A.LitNull) = 
-        pure $ BinOpExpr bOp (LitNull VoidType) (LitNull VoidType) BoolType
-      tc (A.BinOpExpr bOp@(RelOp Neq _) A.LitNull e) =
+      tc (A.BinOpExpr (A.RelOp A.Neq) A.LitNull A.LitNull) = 
+        pure $ BinOpExpr (RelOp Neq VoidType) (LitNull VoidType) 
+                                              (LitNull VoidType) BoolType
+      tc (A.BinOpExpr bOp@(A.RelOp Neq) A.LitNull e) =
         let eM     = tc e
             nullM  = LitNull <$> (texprType <$> eM)
-        in  BinOpExpr bOp <$> nullM <*> eM <*> pure BoolType
-      tc (A.BinOpExpr bOp@(RelOp Neq _) e A.LitNull) =
+        in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM))
+                      <*> nullM <*> eM <*> pure BoolType
+      tc (A.BinOpExpr bOp@(A.RelOp Neq) e A.LitNull) =
         let eM     = tc e
             nullM  = LitNull <$> (texprType <$> eM)
-        in  BinOpExpr bOp <$> eM <*> nullM <*> pure BoolType
+        in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM)) 
+                      <*> eM <*> nullM <*> pure BoolType
 
       tc (A.BinOpExpr bOp e1 e2) =
         let e1M  = tc e1
             e2M  = tc e2
             tM   = join $ binOpTypes bOp <$> e1M <*> e2M
-        in BinOpExpr bOp <$> e1M <*> e2M <*> tM
+        in BinOpExpr <$> (RelOp Eq <$> (texprType <$> e1M))  
+                     <*> e1M <*> e2M <*> tM
       tc (A.UnOpExpr uop e) = 
         let eM  = tc e
             tM  = join $ unOpTypes uop <$> eM
@@ -166,19 +195,19 @@ typecheckExpr argMap dom resType =
       tc e = throwError $ "Can't typecheck " ++ show e
     in tc
 
-isBool And      = True
-isBool Or       = True
-isBool Implies  = True
+isBool A.And      = True
+isBool A.Or       = True
+isBool A.Implies  = True
 isBool _        = False
 
 isNumType IntType = True
 isNumType DoubleType = True
 isNumType _ = False
 
-isNum Add = True
-isNum Sub = True
-isNum Mul = True
-isNum Div = True
+isNum A.Add = True
+isNum A.Sub = True
+isNum A.Mul = True
+isNum A.Div = True
 isNum _   = False
 
 unOpTypes Not e 
@@ -187,8 +216,8 @@ unOpTypes Neg e
     | isNumType (texprType e)  = return $ texprType e
 unOpTypes Old e = return $ texprType e
 
-binOpTypes :: BinOp -> TExpr -> TExpr -> TypeM Type
-binOpTypes (RelOp r _) e1 e2 
+binOpTypes :: A.BinOp -> TExpr -> TExpr -> TypeM Type
+binOpTypes (A.RelOp r) e1 e2 
   | texprType e1 == texprType e2 = pure BoolType
   | otherwise =  throwError $ 
                  show (e1,e2) ++ " are unsuitable arguments for " ++ show r

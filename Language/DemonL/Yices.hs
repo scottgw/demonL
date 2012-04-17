@@ -3,7 +3,7 @@ module Language.DemonL.Yices where
 import Math.SMT.Yices.Syntax
 
 import Language.DemonL.Types
-import Language.DemonL.AST hiding (Expr (..))
+import Language.DemonL.AST hiding (Expr (..), BinOp (..))
 import Language.DemonL.TypeCheck
 
 -- Type conversion

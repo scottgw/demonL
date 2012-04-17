@@ -26,12 +26,12 @@ table =
      ,binary "/"  (BinOpExpr Div) AssocLeft]
     ,[binary "+"  (BinOpExpr Add) AssocLeft
      ,binary "-"  (BinOpExpr Sub) AssocLeft]
-    ,[binary "<=" (BinOpExpr (RelOp Lte NoType)) AssocLeft
-     ,binary "<"  (BinOpExpr (RelOp Lt  NoType)) AssocLeft
-     ,binary "="  (BinOpExpr (RelOp Eq  NoType)) AssocLeft
-     ,binary "/=" (BinOpExpr (RelOp Neq NoType)) AssocLeft
-     ,binary ">"  (BinOpExpr (RelOp Gt  NoType)) AssocLeft
-     ,binary ">=" (BinOpExpr (RelOp Gte NoType)) AssocLeft
+    ,[binary "<=" (BinOpExpr (RelOp Lte)) AssocLeft
+     ,binary "<"  (BinOpExpr (RelOp Lt )) AssocLeft
+     ,binary "="  (BinOpExpr (RelOp Eq )) AssocLeft
+     ,binary "/=" (BinOpExpr (RelOp Neq)) AssocLeft
+     ,binary ">"  (BinOpExpr (RelOp Gt )) AssocLeft
+     ,binary ">=" (BinOpExpr (RelOp Gte)) AssocLeft
      ]
     ,[binary "and"  (BinOpExpr And)  AssocLeft
      ,binary "or"  (BinOpExpr Or)   AssocLeft

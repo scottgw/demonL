@@ -58,7 +58,7 @@ untypeExprDoc = go
       let opMb = case name of
             "INTEGER_32_minus" -> Just Sub
             "INTEGER_32_plus" -> Just Add
-            "INTEGER_32_is_greater" -> Just (RelOp Gt (error "untypeExprDoc"))
+            "INTEGER_32_is_greater" -> Just (RelOp Gt)
             _ -> Nothing
       in case opMb of
         Just op -> go (BinOpExpr op e1 e2)

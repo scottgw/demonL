@@ -61,7 +61,7 @@ data BinOp = Add
            | And
            | Implies
            | ArrayIndex
-           | RelOp ROp Type
+           | RelOp ROp
              deriving Eq
 
 data ROp = Lte
@@ -100,7 +100,7 @@ instance Show BinOp where
   show Or  = "or"
   show And = "and"
   show Implies = "implies"
-  show (RelOp op _) = show op
+  show (RelOp op) = show op
   
 instance Show ROp where
   show Lte = "<="
