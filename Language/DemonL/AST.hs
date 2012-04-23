@@ -8,7 +8,7 @@ import Language.DemonL.Types
 data Decl = Decl 
     { declName :: String,
       declType :: Type
-    }
+    } deriving (Eq, Ord)
 
 declsToMap = foldr ( \ d -> M.insert (declName d) (declType d)) M.empty
 
@@ -77,15 +77,15 @@ data UnOp = Not
           | Old
             deriving Eq
 
-data Expr =
-    Call String [Expr]
+data Expr = 
+  Call String [Expr]
   | BinOpExpr BinOp Expr Expr
   | UnOpExpr UnOp Expr
   | Access Expr String
   | Var String
   | ResultVar
   | Cast Type Expr
-  | ForAll [String] Expr
+  | ForAll [Decl] Expr
   | LitInt Integer
   | LitBool Bool
   | LitDouble Double
@@ -123,8 +123,8 @@ instance Show Expr where
     show (UnOpExpr op e) = show op ++ " (" ++ show e ++ ")"
     show (Access e f)  = show e ++ "." ++ f
     show (Var s)       = s
-    show (ForAll idents e) = 
-      "forall, " ++ intercalate "," idents ++ " " ++ show e
+    show (ForAll decls e) = 
+      "forall: " ++ intercalate "," (map show decls) ++ " " ++ show e
     show ResultVar     = "Result"
     show (Cast t e)    = "{" ++ show t ++ "}" ++ show e
     show (LitInt i)    = show i

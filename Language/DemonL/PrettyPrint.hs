@@ -1,20 +1,24 @@
 module Language.DemonL.PrettyPrint where
 
+import Data.List
+
 import Text.PrettyPrint
 
 import Language.DemonL.AST
 import Language.DemonL.Types
 
-vcatMap f = sep . punctuate empty . map f
+vcatMap f = vsep . intersperse (text "") . map f
 argsMap f = parens . hcat . punctuate comma . map f
 tab = nest 2
+emptyLine = text ""
+vsep = foldr ($+$) empty
 
 domainDoc :: (e -> Doc) -> Domain e -> Doc
 domainDoc exprDoc (Domain structs procs funcs) = 
-  sep [ vcatMap structDoc structs
-      , vcatMap (procDoc exprDoc) procs
-      , vcatMap (procDoc exprDoc) funcs
-      ]
+  vsep [ vcatMap structDoc structs
+       , vcatMap (procDoc exprDoc) procs
+       , vcatMap (procDoc exprDoc) funcs
+       ]
   
 structDoc (Struct name decls) =
   text "type" <+> text name 
@@ -33,10 +37,10 @@ procDoc exprDoc (Procedure name args result req ens) =
   let argsDoc = argsMap declDoc args
       resultDoc = case result of
         NoType -> empty
-        t -> colon <> typeDoc t
+        t -> colon <+> typeDoc t
       clausesDoc = tab . vcatMap (clauseDoc exprDoc)
-      reqDoc = text "require" $$ clausesDoc req
-      ensDoc = text "ensure" $$ clausesDoc ens
+      reqDoc = text "require" $?$ clausesDoc req
+      ensDoc = text "ensure" $?$ clausesDoc ens
   in text name <+> argsDoc <> resultDoc
        $+$ tab reqDoc
        $+$ tab ensDoc
@@ -71,3 +75,7 @@ untypeExprDoc = go
     go LitNull = text "null"
     go ResultVar = text "Result"
     go e = error $ "untypeExprDoc: " ++ show e
+
+d1 $?$ d2
+  | isEmpty d2 = empty
+  | otherwise  = d1 $+$ d2
