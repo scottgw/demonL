@@ -181,13 +181,11 @@ typecheckExpr argMap dom resType =
             nullM  = LitNull <$> (texprType <$> eM)
         in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM)) 
                       <*> eM <*> nullM <*> pure BoolType
-
       tc (A.BinOpExpr bOp e1 e2) =
         let e1M  = tc e1
             e2M  = tc e2
             tM   = join $ binOpTypes bOp <$> e1M <*> e2M
-        in BinOpExpr <$> (RelOp Eq <$> (texprType <$> e1M))  
-                     <*> e1M <*> e2M <*> tM
+        in BinOpExpr (typedBinOp bOp) <$> e1M <*> e2M <*> tM
       tc (A.UnOpExpr uop e) = 
         let eM  = tc e
             tM  = join $ unOpTypes uop <$> eM
@@ -195,6 +193,26 @@ typecheckExpr argMap dom resType =
       tc e = throwError $ "Can't typecheck " ++ show e
     in tc
 
+typedBinOp op =
+  case op of
+    A.Add -> Add
+    A.Sub -> Sub
+    A.Mul -> Mul
+    A.Div -> Div
+    A.Or -> Or
+    A.And -> And
+    A.Implies -> Implies
+    A.ArrayIndex -> error "typedBinOp: no array indexes"
+    A.RelOp rop -> RelOp (typedROp rop) VoidType
+
+typedROp rop = 
+  case rop of
+    A.Lte -> Lte
+    A.Lt -> Lt
+    A.Eq -> Eq
+    A.Gt -> Gt
+    A.Gte -> Gte
+    
 isBool A.And      = True
 isBool A.Or       = True
 isBool A.Implies  = True
