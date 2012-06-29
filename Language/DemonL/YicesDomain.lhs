@@ -7,6 +7,8 @@
 {-# LANGUAGE OverloadedStrings, TupleSections #-}
 module Language.DemonL.YicesDomain (procDom) where
 
+import Control.Monad
+
 import Data.List
 
 import Math.SMT.Yices.Syntax
@@ -78,10 +80,9 @@ actionType = indexedResult BoolType
 actionBody :: [ExpY] -> [TExpr] -> [TExpr] -> ExpY
 actionBody additional pres posts =
     let 
-        ctx0 = LET [(("ctx_0", Nothing), thisTimeRec)]
         mapExpr next = map (exprY thisTime next)
         prePosts = mapExpr thisTime pres ++ map buildPost posts
-    in actionBodyLambda $ ctx0 $ and' $ prePosts ++ additional
+    in actionBodyLambda $ and' $ prePosts ++ additional
 \end{code}
 
 \begin{code}
@@ -102,55 +103,104 @@ actionExpr proc =
 \begin{code}
 buildPost :: TExpr -> ExpY
 buildPost e =
-  let ((i, f), e') = buildQueryEnv 0 e
-  in f (AND [e' i, updateTimeCtx nextTime (VarE ("ctx_" ++ show i))])
+  let (e', ExCtx _ record wrap) = runExState $ buildQueryEnv e
+  in wrap (AND [e' record, updateTimeCtx nextTime record])
 
-buildQueryEnv :: Int -> TExpr -> ((Int, ExpY -> ExpY), Int -> ExpY)
-buildQueryEnv i = go
+data ExCtx = 
+  ExCtx
+  { ctxFresh :: Int
+  , ctxRecord :: ExpY
+  , ctxWrapper :: ExpY -> ExpY
+  }
+
+runExState m = runState m $ ExCtx 0 thisTimeRec id
+
+data ExState a = ExState {
+  runState :: ExCtx -> (a, ExCtx)
+  }
+
+instance Monad ExState where
+  return x = ExState $ \s -> (x, s)
+  (ExState f) >>= g = ExState $ \s1 ->
+    let (x1, s2@(ExCtx i1 r1 wrap1)) = f s1
+        (x2, ExCtx i2 r2 wrap2) = runState (g x1) s2
+    in (x2, ExCtx i2 r2 wrap2)
+
+instance Functor ExState where
+  fmap f mx = mx >>= \x -> return (f x)
+
+setFresh i = ExState $ \s -> ((), s {ctxFresh = i})
+getFresh = ExState $ \s -> (ctxFresh s, s)
+bumpFresh = fmap (+1) getFresh >>= setFresh
+
+getRecord = ExState $ \s -> (ctxRecord s, s)
+setRecord r = ExState $ \s -> ((), s {ctxRecord = r})
+addWrap wrap = ExState $ \s -> ((), s {ctxWrapper = ctxWrapper s . wrap})
+
+buildQueryEnv :: TExpr -> ExState (ExpY -> ExpY)
+buildQueryEnv = go
   where
-    noMod i e = ((i, id), const e)
+    noMod = return . const
     
-    go (LitNull t)    = noMod i $ nullValue t
-    go (LitDouble d)  = noMod i $ LitR (toRational d)
-    go (LitBool b)    = noMod i $ LitB b
-    go (LitInt int)   = noMod i $ LitI (fromIntegral int)
-    go (Var v t)      = noMod i $ VarE v
-    go (Access e f t) = buildQueryEnv i (Call f [e] t)
-    go (BinOpExpr bop e1 e2 t) =
-      let ((q1, ctx1), e1') = buildQueryEnv i e1
-          ((q2, ctx2), e2') = buildQueryEnv q1 e2
-          ctx' = ctx1 . ctx2
-      in ( (q2, ctx'),\x -> binYices bop (e1' x) (e2' x))
-    go (UnOpExpr Old e t) = noMod i $ exprY thisTime thisTime e
-    go (UnOpExpr uop e t) =
-      let ((i', ctx), e') = buildQueryEnv i e          
-      in ( (i', ctx), \x -> unary uop (e' x))
-    go (Call name args t) =
-      let f (queryState, ctx) e = 
-            let ((queryState', ctx'), e') = buildQueryEnv queryState e
-            in ((queryState', ctx . ctx'), e')
+    go (LitNull t)    = noMod $ nullValue t
+    go (LitDouble d)  = noMod $ LitR (toRational d)
+    go (LitBool b)    = noMod $ LitB b
+    go (LitInt int)   = noMod $ LitI (fromIntegral int)
+    go (Var v t)      = noMod $ VarE v
+    go (Access e f t) = go (Call f [e] t)
+    go (BinOpExpr bop e1 e2 t) = do
+      e1' <- go e1
+      e2' <- go e2
+      return (\x -> binYices bop (e1' x) (e2' x))
+    go (UnOpExpr Old e t) = noMod $ exprY thisTime thisTime e
+    go (UnOpExpr uop e t) = do
+      e' <- go e
+      return (unary uop . e')
+    go (Call name args t) = 
+      let 
+        exResult x = "ex_" ++ name ++ "_" ++ show x
+        
+        updated :: [ExpY -> ExpY] -> Int -> ExpY -> ExpY
+        updated args'  fresh record = UPDATE_R record name updateFunc      
+             where 
+               updateFunc = UPDATE_F (SELECT_R record name)
+                                     (argsAt args' record) 
+                                     (VarE $ exResult fresh)
+        
+        argsAt :: [ExpY -> ExpY] -> ExpY -> [ExpY]
+        argsAt as record = map ($ record) as
 
-          ((i', ctx'), args') = mapAccumL f (i, id) args
+        mkEnv :: ExpY -> Int -> ExpY -> ExpY
+        mkEnv record i e = EXISTS [(exResult i, basicTypeY t)] e
+        
+        final as x = APP (SELECT_R x name) (argsAt as x)
+      in do
+        bumpFresh
+        args' <- mapM go args
+        fresh <- getFresh
+        record' <- fmap (updated args' fresh) getRecord
+        setRecord record'
+        addWrap (mkEnv record' fresh)
+        return (final args')
+        
+      -- let freshI = i' + 1
           
-          freshI = i' + 1
+      --     envVar = VarE . envName
+      --     envName x = "ctx_" ++ show x
           
-          ctxVar = VarE . ctxName
-          ctxName x = "ctx_" ++ show x
+      --     exResult x = "ex_" ++ name ++ "_" ++ show x
           
-          exResult x = "ex_" ++ name ++ "_" ++ show x
+      --     argsAt as x = map ($ x) as
           
-          argsAt as x = map ($ x) as
-          
-          getFunc x = SELECT_R (ctxVar x)
-          updateFunc = UPDATE_F (getFunc i' name)
-                                (argsAt args' i') 
-                                (VarE $ exResult freshI)
-          updated = UPDATE_R (ctxVar i') name updateFunc
-          mkCtx e = 
-            EXISTS [(exResult freshI, basicTypeY t)]
-                   (LET [((ctxName freshI, Nothing), updated)] e)
-                                    
-      in ((freshI, ctx' . mkCtx), \x -> APP (getFunc x name) (argsAt args' x))
+      --     getFunc x = SELECT_R (envVar x)
+      --     updateFunc = UPDATE_F (getFunc i' name)
+      --                           (argsAt args' i') 
+      --                           (VarE $ exResult freshI)
+      --     updated = UPDATE_R (envVar i') name updateFunc
+      --     mkEnv e = 
+      --       EXISTS [(exResult freshI, basicTypeY t)]
+      --              (LET [((envName freshI, Nothing), updated)] e
+      -- in ((freshI, env' . mkEnv), \x -> APP (getFunc x name) (argsAt args' x))
 
 unary Not = NOT 
 unary Neg = (LitI 0 :-:)
