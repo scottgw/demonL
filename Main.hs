@@ -38,13 +38,16 @@ main = do
 
 generateDomain dom fileName = writeYices fileName (procDom dom)
 generateGoal dom goal fileName = writeYices fileName (goalSetup dom goal)
- 
-interpResult (Sat exprs) dom goal =
+
+interpResult debug (Sat exprs) dom goal =
   putStrLn (unlines $ map show exprs) >> 
   putStrLn (generateScript goal dom exprs)
-interpResult (UnSat _) _ _ = putStrLn "Unsat"
-interpResult (Unknown _) _ _  = putStrLn "Unknown"
-interpResult (InCon ss) _ _ = mapM_ putStrLn ss
+interpResult _ (UnSat _) _ _ = putStrLn "Unsat"
+interpResult debug (Unknown exprs) dom goal = do
+  putStrLn "Unknown"
+  when debug $ putStrLn (unlines $ map show exprs)
+  putStrLn (generateScript goal dom exprs)
+interpResult debug (InCon ss) _ _ = mapM_ putStrLn ss
 
 -- runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands debug dCmds gCmds dom goal = do
@@ -56,10 +59,10 @@ runCommands debug dCmds gCmds dom goal = do
   
   found <- searchNone yPipe dom goal
 
-  -- searchAll yPipe (goalSteps goal) dom goal
+
     
   if found
-    then searchUpTo debug yPipe (goalSteps goal) dom goal
+    then   searchAll debug yPipe (goalSteps goal) dom goal -- searchUpTo debug yPipe (goalSteps goal) dom goal
     else putStrLn "Interference impossible"
            
   t2 <- getCurrentTime
@@ -76,11 +79,11 @@ searchNone yPipe dom goal = do
     Unknown _ -> True
     _ -> False
 
-searchAll yPipe maxSteps dom goal = do
+searchAll debug yPipe maxSteps dom goal = do
   runCmdsY' yPipe (map goalAction [0 .. maxSteps - 1])
   runCmdsY' yPipe [goalAssert dom goal maxSteps]
   res <- checkY yPipe
-  interpResult res dom goal
+  interpResult debug res dom goal
   
 searchUpTo debug yPipe maxSteps dom goal = 
   let run1 = runCmdsY' yPipe . (:[])
@@ -91,6 +94,7 @@ searchUpTo debug yPipe maxSteps dom goal =
         | i >= maxSteps = putStrLn "Unsatisfiable"
         | otherwise = do
           run1 (goalAction i)
+          when debug (putStrLn $ show $ goalAction i)
           push
           run1 (goalAssert dom goal (i+1))
           res <- check
@@ -98,9 +102,10 @@ searchUpTo debug yPipe maxSteps dom goal =
             Sat exprs -> 
               when debug (putStrLn (unlines $ map show exprs)) >> 
               putStrLn (generateScript goal dom exprs)
-            Unknown exprs -> 
-              putStrLn "Unknown" >>
-              when debug (putStrLn (unlines $ map show exprs)) >> 
+            Unknown exprs -> do
+              putStrLn "Unknown"
+              when debug (putStrLn (unlines $ map show exprs) >>
+                          putStrLn (show $ goalAssert dom goal (i+1)))
               putStrLn (generateScript goal dom exprs)
             _          -> pop >> go (i+1)
   in go 0

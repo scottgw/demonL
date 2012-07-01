@@ -182,25 +182,6 @@ buildQueryEnv = go
         setRecord record'
         addWrap (mkEnv record' fresh)
         return (final args')
-        
-      -- let freshI = i' + 1
-          
-      --     envVar = VarE . envName
-      --     envName x = "ctx_" ++ show x
-          
-      --     exResult x = "ex_" ++ name ++ "_" ++ show x
-          
-      --     argsAt as x = map ($ x) as
-          
-      --     getFunc x = SELECT_R (envVar x)
-      --     updateFunc = UPDATE_F (getFunc i' name)
-      --                           (argsAt args' i') 
-      --                           (VarE $ exResult freshI)
-      --     updated = UPDATE_R (envVar i') name updateFunc
-      --     mkEnv e = 
-      --       EXISTS [(exResult freshI, basicTypeY t)]
-      --              (LET [((envName freshI, Nothing), updated)] e
-      -- in ((freshI, env' . mkEnv), \x -> APP (getFunc x name) (argsAt args' x))
 
 unary Not = NOT 
 unary Neg = (LitI 0 :-:)
@@ -317,8 +298,8 @@ argArrayType s = ARR [intTypeY, indexType, VarT (structStr s)]
 
 \begin{code}
 argsFromArray = 
-  let go i (Decl _ t) = APP (argArrayVal t) [LitI i, preIdx]
-  in zipWith go [1..] 
+  let go i (Decl _ t) = APP (argArrayVal t) [preIdx, LitI i]
+  in zipWith go [0 ..] 
 \end{code}
 
 \end{document}
