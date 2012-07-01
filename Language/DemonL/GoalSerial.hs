@@ -30,5 +30,3 @@ assignmentExprs dom decls = ASSERT . exprYbefore . unsafeCheck decls dom
 
 goalAssert dom goal step = 
     (ASSERT . exprYgoal step . unsafeCheck (vars goal) dom . goalExpr) goal
-
--- Ich danke für deine Mühen.
