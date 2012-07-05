@@ -72,9 +72,13 @@ untypeExprDoc = go
     go (BinOpExpr op e1 e2) = parens (go e1 <+> text (show op) <+> go e2)
     go (UnOpExpr op e) = parens (text (show op) <+> go e)
     go (LitInt i) = integer i
+    go (LitBool b) = bool b
     go LitNull = text "null"
     go ResultVar = text "Result"
     go e = error $ "untypeExprDoc: " ++ show e
+
+bool True = text "true"
+bool False = text "false"
 
 d1 $?$ d2
   | isEmpty d2 = empty
