@@ -62,7 +62,7 @@ data BinOp = Add
            | Implies
            | ArrayIndex
            | RelOp ROp
-             deriving Eq
+             deriving (Ord, Eq)
 
 data ROp = Lte
          | Lt 
@@ -70,12 +70,12 @@ data ROp = Lte
          | Neq
          | Gt 
          | Gte
-           deriving Eq
+           deriving (Ord, Eq)
 
 data UnOp = Not
           | Neg
           | Old
-            deriving Eq
+            deriving (Ord, Eq)
 
 data Expr = 
   Call String [Expr]
@@ -90,7 +90,7 @@ data Expr =
   | LitBool Bool
   | LitDouble Double
   | LitNull
-  deriving Eq
+  deriving (Ord, Eq)
 
 instance Show BinOp where
   show Add = "+"
