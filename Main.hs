@@ -15,9 +15,11 @@ import System.Environment
 import Language.DemonL.Goal
 import Language.DemonL.GoalSerial
 import Language.DemonL.Parser (serialGoal, domain)
+import Language.DemonL.PrettyPrint
 import Language.DemonL.Script (generateScript)
 import Language.DemonL.YicesDomain (procDom)
 import Language.DemonL.Yices
+
 
 main = do
   args <- getArgs
@@ -51,6 +53,8 @@ interpResult debug (InCon ss) _ _ = mapM_ putStrLn ss
 
 -- runCommands :: [CmdY] -> [CmdY] -> IO ResY
 runCommands debug dCmds gCmds dom goal = do
+  -- let prints = mapM_ print
+  -- when debug (prints dCmds >> prints gCmds)
   t1 <- getCurrentTime
   yicesPath <- getEnv "YICES_EXE"
   yPipe <- createYicesPipe yicesPath []
@@ -58,11 +62,10 @@ runCommands debug dCmds gCmds dom goal = do
   runCmdsY' yPipe gCmds
   
   found <- searchNone yPipe dom goal
-
-
     
   if found
-    then   searchAll debug yPipe (goalSteps goal) dom goal -- searchUpTo debug yPipe (goalSteps goal) dom goal
+    then searchAll debug yPipe (goalSteps goal) dom goal 
+         -- searchUpTo debug yPipe (goalSteps goal) dom goal
     else putStrLn "Interference impossible"
            
   t2 <- getCurrentTime

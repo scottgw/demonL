@@ -27,6 +27,7 @@ lexeme =
                concat [["True","False"]
                       ,["Void"]
                       ,["type"]
+                      ,["forall"]
                       ,["Result"]
                       ,["ensure","require","invariant"]
                       ,["Int","Double","Bool"]

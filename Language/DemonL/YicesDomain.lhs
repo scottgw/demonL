@@ -61,10 +61,19 @@ procDom untypedDom  =
       Left errStr -> error $ "Error typechecking domain: " ++ errStr
       Right (Domain types procs funcs) ->
          concat  [ tagsAndTypes types procs
+                 , nullValues types
                  , [timedContext types funcs]
                  , functionByAssert funcs
                  , actions procs
                  ]
+\end{code}
+Define the null values for each struct type.
+\begin{code}
+nullValues :: [Struct] -> [CmdY]
+nullValues = map nullValue
+  where
+    nullValue (Struct name _) = 
+      DEFINE (nullStr name, intTypeY) (Just $ LitI 0)
 \end{code}
 
 Action Creation

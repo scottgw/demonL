@@ -23,6 +23,7 @@ data TExpr =
     Call String [TExpr] Type
   | BinOpExpr BinOp TExpr TExpr Type
   | UnOpExpr UnOp TExpr Type
+  | ForAll [Decl] TExpr
   | Access TExpr String Type
   | Var String Type
   | ResultVar Type
@@ -30,7 +31,7 @@ data TExpr =
   | LitInt Integer
   | LitBool Bool
   | LitNull Type
-  | LitDouble Double deriving (Show, Eq)
+  | LitDouble Double deriving (Show, Eq, Ord)
 
 
 data BinOp = Add
@@ -42,7 +43,7 @@ data BinOp = Add
            | Implies
            | ArrayIndex
            | RelOp ROp Type
-             deriving Eq
+             deriving (Eq, Ord)
 
 instance Show BinOp where
   show Add = "+"
@@ -59,6 +60,7 @@ runTypeM = runIdentity . runErrorT
 texprType (Call _ _ t) = t
 texprType (BinOpExpr _ _ _ t) = t
 texprType (UnOpExpr _ _ t) = t
+texprType (ForAll _ _) = BoolType
 texprType (Access _ _ t) = t
 texprType (Var _ t) = t
 texprType (ResultVar t) = t
@@ -121,16 +123,16 @@ findFunction name dom =
 checkFunctionArgs argMap dom resType f args
   | length (prcdArgs f) /= length args = 
     throwError $ "Arguments not same length"
-  | otherwise =
-      let formalTypes = map declType (prcdArgs f)
-          actualArgs  = mapM (fmap texprType . typecheckExpr argMap dom resType) args
-          sameTypesM  = and <$> (zipWith (==) formalTypes <$> actualArgs)
-      in do
-        b <- sameTypesM
-        if b 
-          then return (prcdResult f)
-          else throwError "Some types don't conform in arguments"
-
+  | otherwise = do
+    let formalTypes = map declType (prcdArgs f)
+        guardTypeM type1 type2 
+           | type1 == type2 = return ()
+           | otherwise  = throwError $ "Unconforming arguments: " ++ 
+                           show type1 ++ " and " ++ show type2
+    actualArgs <- mapM (fmap texprType . typecheckExpr argMap dom resType) args
+    zipWithM_ guardTypeM formalTypes actualArgs
+    return (prcdResult f)
+    
 typecheckExpr :: M.Map String Type -> DomainU -> Type -> A.Expr -> TypeM TExpr
 typecheckExpr argMap dom resType = 
     let 
@@ -174,12 +176,12 @@ typecheckExpr argMap dom resType =
       tc (A.BinOpExpr bOp@(A.RelOp Neq) A.LitNull e) =
         let eM     = tc e
             nullM  = LitNull <$> (texprType <$> eM)
-        in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM))
+        in  BinOpExpr <$> (RelOp Neq <$> (texprType <$> eM))
                       <*> nullM <*> eM <*> pure BoolType
       tc (A.BinOpExpr bOp@(A.RelOp Neq) e A.LitNull) =
         let eM     = tc e
             nullM  = LitNull <$> (texprType <$> eM)
-        in  BinOpExpr <$> (RelOp Eq <$> (texprType <$> eM)) 
+        in  BinOpExpr <$> (RelOp Neq <$> (texprType <$> eM)) 
                       <*> eM <*> nullM <*> pure BoolType
       tc (A.BinOpExpr bOp e1 e2) =
         let e1M  = tc e1
@@ -190,6 +192,10 @@ typecheckExpr argMap dom resType =
         let eM  = tc e
             tM  = join $ unOpTypes uop <$> eM
         in UnOpExpr uop <$> eM <*> tM
+      tc (A.ForAll ds e) = 
+        ForAll ds <$> typecheckExpr ds' dom BoolType e
+        where
+          ds' = declsToMap ds `M.union` argMap
       tc e = throwError $ "Can't typecheck " ++ show e
     in tc
 
@@ -233,6 +239,7 @@ unOpTypes Not e
 unOpTypes Neg e
     | isNumType (texprType e)  = return $ texprType e
 unOpTypes Old e = return $ texprType e
+unOpTypes op  e = error $ "unOpTypes: " ++ show op ++ ", " ++ show e
 
 binOpTypes :: A.BinOp -> TExpr -> TExpr -> TypeM Type
 binOpTypes (A.RelOp r) e1 e2 

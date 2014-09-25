@@ -85,14 +85,14 @@ Library
   Exposed-modules:
     Language.DemonL.Types,
     Language.DemonL.AST,
-    Language.DemonL.Parser
-    Language.DemonL.PrettyPrint
+    Language.DemonL.Parser,
+    Language.DemonL.PrettyPrint,
+    Language.DemonL.TypeCheck
 
   Other-modules:
     Language.DemonL.ParserBasic,
     Language.DemonL.Script,
     Language.DemonL.Yices,
     Language.DemonL.YicesDomain,
-    Language.DemonL.TypeCheck,
     Language.DemonL.GoalSerial,
     Language.DemonL.Goal

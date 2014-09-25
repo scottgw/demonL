@@ -59,6 +59,7 @@ factor =
   <|> nullLit
   <|> boolLit
   <|> resultVar
+  <|> forall
   <|> try call
   <|> var  
   <|> parens expr
@@ -73,6 +74,9 @@ call = Call <$> identifier <*> argsP
 intLit = fmap (LitInt . fromIntegral) integer
 boolLit = (reservedOp "True" >> return (LitBool True)) <|>
           (reservedOp "False" >> return (LitBool False))
+
+forall = reserved "forall" *> (ForAll <$> argumentList <*> expr)
+  
 
 -- Procedure bodies
 clause = try $ Clause <$> identifier <*> (colon *> expr)

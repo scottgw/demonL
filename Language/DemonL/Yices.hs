@@ -52,7 +52,8 @@ exprY _ _ (LitInt int) = LitI (fromIntegral int)
 exprY _ _ (LitBool b) = LitB b
 exprY _ _ (LitDouble d) = LitR (toRational d)
 exprY _ _ (LitNull t) = nullValue t
-
+exprY pre post (ForAll ds e) = FORALL (declsToArgsY ds) (exprY pre post e)
+exprY _ _ e = error $ "exprY: " ++ show e
 
 replace old new = go
   where
